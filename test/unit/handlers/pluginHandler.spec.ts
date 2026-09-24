@@ -2108,6 +2108,7 @@ describe('Indexer:Plugin', () => {
     let seedDao: sinon.SinonStub
     let getBytecode: sinon.SinonStub
     let readOwners: sinon.SinonStub
+    let sendMessage: sinon.SinonStub
 
     beforeEach(() => {
       sandbox.stub(Models.Dao, 'findByAddress').resolves({ address: daoAddress } as any)
@@ -2117,6 +2118,7 @@ describe('Indexer:Plugin', () => {
       readOwners = sandbox
         .stub(SafeChainReaderModule, 'readOwners')
         .resolves(['0x4444444444444444444444444444444444444444'])
+      sendMessage = sandbox.stub(RabbitMQHelper, 'sendMessage').resolves()
       sandbox.stub(logger, 'verbose')
     })
 
@@ -2198,6 +2200,15 @@ describe('Indexer:Plugin', () => {
 
       expect(errorStub.calledOnce).to.be.true
       expect(await Models.Plugin.countDocuments({ address: safeAddress })).to.equal(0)
+    })
+
+    it('should queue a full-history transaction sync for the Safe, on a reinstall too', async () => {
+      await createRow(IPluginInterfaceType.safe, IPluginStatus.uninstalled)
+
+      await PluginHandler.installSafeOnPermissionGranted(daoAddress, safeAddress, info)
+
+      expect(sendMessage.calledOnceWith(EnumQueueName.safeRefresh)).to.be.true
+      expect(sendMessage.firstCall.args[1].params.historyPages).to.be.greaterThan(1)
     })
   })
 
