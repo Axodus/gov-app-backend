@@ -13,6 +13,10 @@ describe('Helpers:PluginSlug', () => {
 
   beforeEach(async () => {
     sandbox = sinon.createSandbox()
+    sandbox.stub(logger, 'verbose')
+    sandbox.stub(logger, 'info')
+    sandbox.stub(logger, 'warn')
+    sandbox.stub(logger, 'error')
   })
 
   afterEach(async () => {
@@ -85,6 +89,12 @@ describe('Helpers:PluginSlug', () => {
       expect(await PluginSlug.generateSlug(plugin2, undefined as any)).to.equal(IPluginSlug.multisig)
       expect(await PluginSlug.generateSlug(plugin3, undefined as any)).to.equal(IPluginSlug.spp)
       expect(await PluginSlug.generateSlug(plugin4, undefined as any)).to.equal(IPluginSlug.admin)
+    })
+
+    it('should give a Safe process the safe slug', async () => {
+      const safe = await plugin.update({ interfaceType: IPluginInterfaceType.safe })
+
+      expect(await PluginSlug.generateSlug(safe, undefined as any)).to.equal(IPluginSlug.safe)
     })
 
     it('should return default processKey on multiple plugins', async () => {
@@ -397,7 +407,7 @@ describe('Helpers:PluginSlug', () => {
     })
 
     it('should handle error when _createSlugWithRetries throws for default slug', async () => {
-      const errorStub = sandbox.stub(logger, 'error')
+      const errorStub = logger.error as sinon.SinonStub
       sandbox.stub(PluginSlug, '_parseProcessKey').returns(null)
       sandbox.stub(Models.PluginSlug, 'findPluginSlug').resolves(null)
       sandbox.stub(PluginSlug, '_createSlugWithRetries').rejects(new Error('Create slug failed'))
@@ -409,7 +419,7 @@ describe('Helpers:PluginSlug', () => {
     })
 
     it('should handle error when _createSlugWithRetries throws for parameterized slug', async () => {
-      const errorStub = sandbox.stub(logger, 'error')
+      const errorStub = logger.error as sinon.SinonStub
       sandbox.stub(Models.PluginSlug, 'findPluginSlug').resolves(null)
       sandbox.stub(PluginSlug, '_createSlugWithRetries').rejects(new Error('Create slug failed'))
 
@@ -554,7 +564,7 @@ describe('Helpers:PluginSlug', () => {
 
     it('should handle errors gracefully and return false', async () => {
       sandbox.stub(Models.PluginSlug, 'deleteOne').throws(new Error('Database error'))
-      const stubError = sandbox.stub(Logger, 'error')
+      const stubError = Logger.error as sinon.SinonStub
 
       const wasDeleted = await PluginSlug.deleteSlug(pluginToDelete)
       expect(wasDeleted).to.be.false
@@ -746,7 +756,7 @@ describe('Helpers:PluginSlug', () => {
 
       const findPluginSlugStub = sandbox.stub(Models.PluginSlug, 'findPluginSlug').resolves(null)
       const createStub = sandbox.stub(Models.PluginSlug, 'create').throws(new Error('Unexpected error'))
-      const loggerStub = sandbox.stub(logger, 'error')
+      const loggerStub = logger.error as sinon.SinonStub
 
       const result = await PluginSlug._createSlugWithRetries(baseSlug, plugin)
 
@@ -758,7 +768,7 @@ describe('Helpers:PluginSlug', () => {
 
     it('should handle error code 112 (concurrency error) and continue', async () => {
       const baseSlug = 'concurrency-slug'
-      const warnStub = sandbox.stub(logger, 'warn')
+      const warnStub = logger.warn as sinon.SinonStub
 
       const findPluginSlugStub = sandbox.stub(Models.PluginSlug, 'findPluginSlug').resolves(null)
       const error112 = new Error('Write conflict')
@@ -782,7 +792,7 @@ describe('Helpers:PluginSlug', () => {
     it('should return null after maximum retries exceeded', async () => {
       sandbox.stub(logger, 'warn')
       const baseSlug = 'max-retries-slug'
-      const errorStub = sandbox.stub(logger, 'error')
+      const errorStub = logger.error as sinon.SinonStub
 
       const findPluginSlugStub = sandbox.stub(Models.PluginSlug, 'findPluginSlug').resolves(null)
       const duplicateError = new Error('Duplicate key')
@@ -824,7 +834,7 @@ describe('Helpers:PluginSlug', () => {
 
     it('should handle error code 112 (concurrency error) during update', async () => {
       const newSlug = 'update-concurrency-slug'
-      const warnStub = sandbox.stub(logger, 'warn')
+      const warnStub = logger.warn as sinon.SinonStub
 
       const error112 = new Error('Write conflict')
       ;(error112 as any).code = 112
@@ -841,7 +851,7 @@ describe('Helpers:PluginSlug', () => {
     it('should return null after maximum retries exceeded during update', async () => {
       sandbox.stub(logger, 'info')
       const newSlug = 'update-max-retries-slug'
-      const errorStub = sandbox.stub(logger, 'error')
+      const errorStub = logger.error as sinon.SinonStub
 
       const duplicateError = new Error('Duplicate key')
       ;(duplicateError as any).code = 11000
@@ -857,7 +867,7 @@ describe('Helpers:PluginSlug', () => {
 
     it('should handle unexpected error during update', async () => {
       const newSlug = 'update-error-slug'
-      const errorStub = sandbox.stub(logger, 'error')
+      const errorStub = logger.error as sinon.SinonStub
 
       const unexpectedError = new Error('Unexpected database error')
       pluginSlug.update.rejects(unexpectedError)
