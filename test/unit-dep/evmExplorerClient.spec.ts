@@ -23,7 +23,7 @@ describe('Integ: EvmExplorerClient', () => {
   }
 
   describe('fetchContractSourceCode', function () {
-    this.timeout(30000)
+    this.timeout(60000)
 
     describe('Etherscan', () => {
       for (const network in testTokens) {
