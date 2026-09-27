@@ -16,6 +16,7 @@ import { AggregationQueryHelper } from '@models/utils/aggregation'
 import DbOperations from '@models/utils/dbOperations'
 import DbTx from '@modules/dbTx'
 import SafeBodyMembersModule from '@modules/safe/safeBodyMembers'
+import SafeChainReaderModule from '@modules/safe/safeChainReader'
 import RabbitMQHelper from '@src/helpers/rabbitMQ'
 import { IPermission } from '@src/types/permission'
 import {
@@ -665,6 +666,9 @@ export const PluginHandler = {
         const code = await ContractHelper.getBytecode(safeAddress, info.network)
         const safeSelector = PluginDetector._generateFunctionHash(PluginDetector.SAFE_WALLET).replace('0x', '')
         if (!code?.includes(safeSelector)) return
+        // The selector can sit in any bytecode; a Safe also answers getOwners. A node failure throws into the catch.
+        const owners = await SafeChainReaderModule.readOwners(info.network, safeAddress)
+        if (!owners?.length) return
 
         const document: Partial<Plugin> = {
           id: `${info.network}-${info.transactionHash}-${safeAddress}-${daoAddress}`,

@@ -1171,6 +1171,62 @@ describe('Indexer: PluginSetupProcessorHandler', () => {
       expect(updatedSubPlugin.status).to.eq(IPluginStatus.abandoned)
     })
 
+    it('should keep the Safe processes installed when an SPP that used the Safe as a body is uninstalled', async () => {
+      const network = NetworksEnum.ethereumMainnet
+      const daoA = '0x000000000000000000000000000000000000000A'
+      const daoB = '0x000000000000000000000000000000000000000B'
+      const safe = '0x5AFE000000000000000000000000000000005AFE'
+      const spp = '0x5990000000000000000000000000000000005990'
+
+      const safeProcess = (daoAddress: string) =>
+        Models.Plugin.create({
+          id: `safe-process-${daoAddress}`,
+          address: safe,
+          daoAddress,
+          network,
+          interfaceType: IPluginInterfaceType.safe,
+          status: IPluginStatus.installed,
+          isSupported: true,
+          isProcess: true,
+          transactionHash: '0xgrant',
+          blockNumber: 10,
+        })
+      await safeProcess(daoA)
+      await safeProcess(daoB)
+      await Models.Plugin.create({
+        id: 'spp-dao-a',
+        address: spp,
+        daoAddress: daoA,
+        network,
+        interfaceType: IPluginInterfaceType.spp,
+        status: IPluginStatus.uninstalled,
+        transactionHash: '0xspp',
+        blockNumber: 5,
+        subPlugins: [{ stageIndex: 0, addresses: [safe] }],
+      })
+
+      sandbox.stub(logger, 'verbose')
+      sandbox.stub(Models.Dao, 'findByAddress').resolves(true as any)
+      sandbox.stub(PluginSetupProcessorHandler, 'pluginHandler')
+      sandbox.stub(RabbitMQHelper, 'sendMessage').resolves()
+
+      const info = {
+        network,
+        blockNumber: 20,
+        transactionIndex: 0,
+        logIndex: 1,
+        transactionHash: '0xuninstall',
+        address: '0xpsp',
+        eventName: 'UninstallationApplied',
+      }
+      const event = { args: { dao: daoA, preparedSetupId: '0x01', plugin: spp } }
+
+      await PluginSetupProcessorHandler.uninstallationApplied(event as any, info)
+
+      const statuses = await Models.Plugin.distinct('status', { address: safe })
+      expect(statuses).to.deep.equal([IPluginStatus.installed])
+    })
+
     it('dao not found error', async () => {
       const logInfo = {
         network: NetworksEnum.ethereumMainnet,

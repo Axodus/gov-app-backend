@@ -1,9 +1,11 @@
 import { Models } from '@dbModels'
 import { PluginHandler } from '@handlers/pluginHandler'
+import RabbitMQHelper from '@helpers/rabbitMQ'
 import logger from '@logger'
 import { IPermission } from '@src/types/permission'
 import {
   EnumConnection,
+  EnumQueueName,
   type HexAddress,
   IEventLogPermission,
   type ILogInfo,
@@ -96,6 +98,15 @@ export const RegisterSafeProcesses: IService = {
         }
         const plugin = await PluginHandler.installSafeOnPermissionGranted(whereAddress, whoAddress, info)
         if (!plugin) continue
+
+        // updateConditionAddress queues the selector crawl only for a new condition, so a crawl lost on an
+        // earlier run is queued again here
+        if (conditionAddress && plugin.conditionAddress === conditionAddress) {
+          await RabbitMQHelper.sendMessage(EnumQueueName.logSelectorPermission, {
+            id: plugin.id,
+            params: { address: plugin.address, network, daoAddress: plugin.daoAddress, conditionAddress },
+          })
+        }
 
         // the crawl only sets the condition on a fresh Granted, so a replayed grant needs it here
         await PluginHandler.updateConditionAddress(whoAddress, whereAddress, network, conditionAddress)

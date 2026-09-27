@@ -17,6 +17,7 @@ import DbOperations from '@models/utils/dbOperations'
 import DbTx from '@modules/dbTx'
 import ProviderModule from '@modules/provider'
 import SafeBodyMembersModule from '@modules/safe/safeBodyMembers'
+import SafeChainReaderModule from '@modules/safe/safeChainReader'
 import { DaoRegistryHandler } from '@src/handlers/daoRegistryHandler'
 import RabbitMQHelper from '@src/helpers/rabbitMQ'
 import { ListLogPluginRepo } from '@test/mock/fakeLogPluginRepo'
@@ -824,7 +825,6 @@ describe('Indexer:Plugin', () => {
       // no previous installed row exists, so the handler bails before deprecating anything
       sandbox.stub(PluginHandler, '_createPlugin').resolves(newRow)
       sandbox.stub(logger, 'warn')
-      sandbox.stub(logger, 'verbose')
 
       await PluginHandler.updatePlugin({ network: NetworksEnum.ethereumMainnet } as any)
 
@@ -2107,12 +2107,16 @@ describe('Indexer:Plugin', () => {
 
     let seedDao: sinon.SinonStub
     let getBytecode: sinon.SinonStub
+    let readOwners: sinon.SinonStub
 
     beforeEach(() => {
       sandbox.stub(Models.Dao, 'findByAddress').resolves({ address: daoAddress } as any)
       sandbox.stub(PluginSlug, 'generateSlug').resolves('safe')
       seedDao = sandbox.stub(SafeBodyMembersModule, 'seedDao').resolves()
       getBytecode = sandbox.stub(ContractHelper, 'getBytecode').resolves(safeProxyCode)
+      readOwners = sandbox
+        .stub(SafeChainReaderModule, 'readOwners')
+        .resolves(['0x4444444444444444444444444444444444444444'])
       sandbox.stub(logger, 'verbose')
     })
 
@@ -2130,6 +2134,15 @@ describe('Indexer:Plugin', () => {
 
     it('should do nothing when the grantee is not a Safe', async () => {
       getBytecode.resolves('0x6080604052')
+
+      await PluginHandler.installSafeOnPermissionGranted(daoAddress, safeAddress, info)
+
+      expect(await Models.Plugin.countDocuments({ address: safeAddress })).to.equal(0)
+      expect(seedDao.notCalled).to.be.true
+    })
+
+    it('should do nothing when a contract has the Safe selector but no owners', async () => {
+      readOwners.resolves(null)
 
       await PluginHandler.installSafeOnPermissionGranted(daoAddress, safeAddress, info)
 
@@ -2470,7 +2483,6 @@ describe('Indexer:Plugin', () => {
       })
 
       sandbox.stub(RabbitMQHelper, 'sendMessage')
-      sandbox.stub(logger, 'verbose')
 
       await PluginHandler.updateConditionAddress(
         mockPlugin.address,
@@ -2704,7 +2716,6 @@ describe('Indexer:Plugin', () => {
       })
 
       const spyFindProposalConditionAddress = sandbox.spy(PluginHandler, 'findProposalConditionAddress')
-      sandbox.stub(logger, 'verbose')
 
       await PluginHandler._createPlugin(mockPluginLog as any)
 
