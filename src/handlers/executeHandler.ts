@@ -7,7 +7,7 @@ import type { ActionDecoded } from '@models/schema/selectorPermission'
 import DbTx from '@modules/dbTx'
 import ProviderModule from '@modules/provider'
 import { ContractInfo } from '@services/aragon-gateway/contractInfo'
-import { type ILogInfo, type ISelectorPermissionIdParams, IPluginStatus, type NetworksEnum } from '@types'
+import { type ILogInfo, IPluginStatus, type ISelectorPermissionIdParams, type NetworksEnum } from '@types'
 import { type LogDescription } from 'ethers'
 import { type ClientSession } from 'mongoose'
 

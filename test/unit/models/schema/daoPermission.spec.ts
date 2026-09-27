@@ -741,7 +741,13 @@ describe('Dao Permission', () => {
     it('lets a newer disallow win over an older allow copy of another process', async () => {
       // B's copy of the block 10 allow can be written after A's disallow, when B's crawl catches up
       const selectors = await seed([
-        { pluginAddress: pluginA, isAllowed: false, blockNumber: 10, logIndex: 0, disallowed: { blockNumber: 20, logIndex: 0 } },
+        {
+          pluginAddress: pluginA,
+          isAllowed: false,
+          blockNumber: 10,
+          logIndex: 0,
+          disallowed: { blockNumber: 20, logIndex: 0 },
+        },
         { pluginAddress: pluginB, isAllowed: true, blockNumber: 10, logIndex: 0 },
       ])
 
@@ -750,7 +756,13 @@ describe('Dao Permission', () => {
 
     it('lets an allow win over a disallow earlier in the same block', async () => {
       const selectors = await seed([
-        { pluginAddress: pluginA, isAllowed: false, blockNumber: 10, logIndex: 0, disallowed: { blockNumber: 20, logIndex: 3 } },
+        {
+          pluginAddress: pluginA,
+          isAllowed: false,
+          blockNumber: 10,
+          logIndex: 0,
+          disallowed: { blockNumber: 20, logIndex: 3 },
+        },
         { pluginAddress: pluginB, isAllowed: true, blockNumber: 20, logIndex: 5 },
       ])
 
