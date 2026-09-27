@@ -95,6 +95,7 @@ describe('AragonPlugins: LogSelectorPermission', () => {
         }
       })
       const endStub = sandbox.stub(BlockchainLogCrawler.prototype, 'end').resolves()
+      sandbox.stub(logger, 'verbose')
 
       const fetchContractCreationStub = sandbox.stub(ProxyWeb3Provider, 'fetchContractCreation').resolves({
         blockNumber: 12000,
@@ -114,6 +115,7 @@ describe('AragonPlugins: LogSelectorPermission', () => {
 
     it('should initialize crawler with correct configuration', async () => {
       const crawlStub = sandbox.stub(BlockchainLogCrawler.prototype, 'crawl').resolves()
+      sandbox.stub(BlockchainLogCrawler.prototype, 'end').resolves()
       sandbox.stub(logger, 'verbose')
       sandbox.stub(ProxyWeb3Provider, 'fetchContractCreation').resolves({
         blockNumber: 12000,
@@ -143,6 +145,7 @@ describe('AragonPlugins: LogSelectorPermission', () => {
 
     it('should filter and use only selector permission events', async () => {
       const crawlStub = sandbox.stub(BlockchainLogCrawler.prototype, 'crawl').resolves()
+      sandbox.stub(BlockchainLogCrawler.prototype, 'end').resolves()
       sandbox.stub(logger, 'verbose')
       sandbox.stub(ProxyWeb3Provider, 'fetchContractCreation').resolves({
         blockNumber: 12000,
