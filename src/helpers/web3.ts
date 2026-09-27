@@ -416,7 +416,6 @@ const Web3Helper = {
     const data = error?.data ?? error?.error?.data
 
     const emptyRevert = errorCode === 'CALL_EXCEPTION' && data === '0x'
-    // balanceOf succeeded but returned nothing
     const emptyReturn = errorCode === 'BAD_DATA' && error?.value === '0x'
     if (!emptyRevert && !emptyReturn) return false
 
