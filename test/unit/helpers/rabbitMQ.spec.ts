@@ -1152,6 +1152,7 @@ describe('Helpers:RabbitMQ', () => {
       }
 
       sandbox.stub(RabbitMQ, 'getChannel').returns(fakeChannelWrapper as any)
+      sandbox.stub(logger, 'verbose')
       const count = await RabbitMQHelper.getQueueMessageCount(queueName)
 
       expect(count).to.equal(3)

@@ -1,4 +1,5 @@
 import { Models } from '@dbModels'
+import logger from '@logger'
 import Dao from '@models/schema/dao'
 import ModelUtils from '@models/utils/models'
 import SafeBodyMembersModule from '@modules/safe/safeBodyMembers'
@@ -505,6 +506,7 @@ describe('Model: Dao', () => {
       })
       getSafeAddressesStub = sandbox.stub(SafeBodyMembersModule, 'getSafeAddresses').resolves([])
       safeMemberDistinctStub = sandbox.stub(Models.SafeMember, 'distinct').resolves([])
+      sandbox.stub(logger, 'error')
     })
 
     it('should return 0 when no plugins exist', async () => {

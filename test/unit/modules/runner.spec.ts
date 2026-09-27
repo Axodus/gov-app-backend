@@ -1,4 +1,5 @@
 import utils from '@helpers/utils'
+import logger from '@logger'
 import Connections from '@modules/connections'
 import { PrometheusStore } from '@modules/prometheusStore'
 import Runner, { stopApp } from '@modules/runner'
@@ -121,6 +122,7 @@ describe('Module: runner - shutdown during start', () => {
     clock = sandbox.useFakeTimers()
     sandbox.stub(Toobusy, 'interval')
     sandbox.stub(Toobusy, 'onLag')
+    sandbox.stub(logger, 'info')
     listenersBefore = new Map(WATCHED_EVENTS.map(event => [event, process.listeners(event as any)]))
   })
 
