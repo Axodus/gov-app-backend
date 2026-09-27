@@ -931,6 +931,18 @@ describe('Helpers:Web3', () => {
       expect(result).to.deep.equal({ balance: null, unreadable: false })
     })
 
+    it('should classify an empty balanceOf return on a deployed contract as unreadable', async () => {
+      sandbox.stub(ProviderModule, 'getAnyRpcProvider').returns({ getCode: sandbox.stub().resolves('0x6080') } as any)
+
+      const result = await Web3Helper.isUnreadableBalanceError(
+        Object.assign(new Error('could not decode result data'), { code: 'BAD_DATA', value: '0x' }),
+        fakeTokenAddress as any,
+        fakeNetwork,
+      )
+
+      expect(result).to.equal(true)
+    })
+
     it('should not classify errors without empty revert data as unreadable', async () => {
       const result = await Web3Helper.isUnreadableBalanceError(
         Object.assign(new Error('fake-error'), { code: 'NETWORK_ERROR' }),

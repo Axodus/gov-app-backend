@@ -415,7 +415,10 @@ const Web3Helper = {
     const errorCode = error?.code || error?.code_str
     const data = error?.data ?? error?.error?.data
 
-    if (errorCode !== 'CALL_EXCEPTION' || data !== '0x') return false
+    const emptyRevert = errorCode === 'CALL_EXCEPTION' && data === '0x'
+    // balanceOf succeeded but returned nothing
+    const emptyReturn = errorCode === 'BAD_DATA' && error?.value === '0x'
+    if (!emptyRevert && !emptyReturn) return false
 
     try {
       const provider = ProviderModule.getAnyRpcProvider(network)
