@@ -72,7 +72,7 @@ describe('ExecuteHandler', () => {
       sandbox.stub(ContractInfo, 'parseSignature').resolves(mockDecodedAction)
       const loggerInfoStub = sandbox.stub(logger, 'info')
 
-      const result = await ExecuteHandler.selectorAllowed(parsedEvent, mockInfo)
+      const result = (await ExecuteHandler.selectorAllowed(parsedEvent, mockInfo))![0]
 
       expect(result).to.exist
       expect(result.selector).to.equal('0x12345678')
@@ -83,7 +83,7 @@ describe('ExecuteHandler', () => {
       expect(result.isAllowed).to.be.true
 
       // Compare the decoded object as plain object
-      const decodedObj = result.decoded.toObject ? result.decoded.toObject() : result.decoded
+      const decodedObj = result.decoded
       expect(decodedObj.functionName).to.equal(mockDecodedAction.functionName)
       expect(decodedObj.contractName).to.equal(mockDecodedAction.contractName)
       expect(decodedObj.proxyName).to.equal(mockDecodedAction.proxyName)
@@ -102,7 +102,8 @@ describe('ExecuteHandler', () => {
       expect(savedPermission).to.exist
     })
 
-    it('should return undefined if plugin not found', async () => {
+    it('should return an empty array if plugin not found', async () => {
+      sandbox.stub(logger, 'warn')
       const parsedEvent = {
         args: {
           selector: '0x12345678',
@@ -117,7 +118,7 @@ describe('ExecuteHandler', () => {
 
       const result = await ExecuteHandler.selectorAllowed(parsedEvent, infoWithInvalidCondition)
 
-      expect(result).to.be.undefined
+      expect(result).to.deep.equal([])
 
       // Verify nothing was created in the database
       const permissions = await Models.SelectorPermission.find({
@@ -126,7 +127,7 @@ describe('ExecuteHandler', () => {
       expect(permissions).to.have.lengthOf(0)
     })
 
-    it('should return undefined if existing selector permission found', async () => {
+    it('should return an empty array if existing selector permission found', async () => {
       const parsedEvent = {
         args: {
           selector: '0x12345678',
@@ -157,7 +158,7 @@ describe('ExecuteHandler', () => {
 
       const result = await ExecuteHandler.selectorAllowed(parsedEvent, mockInfo)
 
-      expect(result).to.be.undefined
+      expect(result).to.deep.equal([])
 
       // Verify only one permission exists
       const permissions = await Models.SelectorPermission.find({
@@ -229,7 +230,7 @@ describe('ExecuteHandler', () => {
         .resolves({ functionName: 'withdraw', contractName: 'Vault' })
       sandbox.stub(logger, 'info')
 
-      const result = await ExecuteHandler.selectorAllowed(parsedEvent, mockInfo)
+      const result = (await ExecuteHandler.selectorAllowed(parsedEvent, mockInfo))![0]
 
       expect(result).to.exist
       expect(result.chainId).to.equal(8453)
@@ -251,7 +252,7 @@ describe('ExecuteHandler', () => {
         .resolves({ functionName: 'withdraw', contractName: 'Vault' })
       sandbox.stub(logger, 'info')
 
-      const result = await ExecuteHandler.selectorAllowed(parsedEvent, mockInfo)
+      const result = (await ExecuteHandler.selectorAllowed(parsedEvent, mockInfo))![0]
 
       expect(result.chainId).to.equal(1)
       expect(parseSignature.args[0][2]).to.equal(NetworksEnum.ethereumMainnet)
@@ -272,7 +273,7 @@ describe('ExecuteHandler', () => {
       const loggerWarn = sandbox.stub(logger, 'warn')
       sandbox.stub(logger, 'info')
 
-      const result = await ExecuteHandler.selectorAllowed(parsedEvent, mockInfo)
+      const result = (await ExecuteHandler.selectorAllowed(parsedEvent, mockInfo))![0]
 
       expect(result).to.exist
       expect(result.chainId).to.equal(9745)
@@ -309,6 +310,240 @@ describe('ExecuteHandler', () => {
 
       expect(base!.isAllowed).to.be.false
       expect(arbitrum!.isAllowed).to.be.true
+    })
+  })
+
+  describe('shared condition across DAOs', () => {
+    const condition = '0x2B5Ad5c4795C026514F8317c7a215E218DDccD66'
+    const daoA = '0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1'
+    const daoB = '0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0'
+    const pluginA = '0x22d491Bde2303f2f43325b2108D26f1eAbA1e32b'
+    const pluginB = '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
+    const where = '0x4e59B44847B379578588920ca783CfB7fcc65347'
+
+    beforeEach(async () => {
+      for (const [address, daoAddress] of [
+        [pluginA, daoA],
+        [pluginB, daoB],
+      ]) {
+        await Models.Plugin.create({
+          status: IPluginStatus.installed,
+          network: NetworksEnum.ethereumMainnet,
+          blockNumber: 12345,
+          blockTimestamp: 1620000000,
+          transactionHash: '0x123abc',
+          address,
+          daoAddress,
+          pluginSetupRepoAddress: '0x1111111111111111111111111111111111111111',
+          interfaceType: 'admin',
+          conditionAddress: condition,
+        })
+      }
+      mockInfo = { ...mockInfo, address: condition }
+    })
+
+    it('gives each DAO its own record when two DAOs share one condition', async () => {
+      sandbox.stub(ContractInfo, 'parseSignature').resolves({ functionName: 'transfer', contractName: 'Token' })
+      sandbox.stub(logger, 'info')
+
+      const result = await ExecuteHandler.selectorAllowed({ args: { selector: '0x12345678', where } } as any, mockInfo)
+
+      expect(result).to.have.lengthOf(2)
+
+      const rows = await Models.SelectorPermission.find({ conditionAddress: condition })
+      expect(rows).to.have.lengthOf(2)
+      expect(rows.map(r => r.daoAddress).sort()).to.deep.equal([daoA, daoB].sort())
+      expect(rows.map(r => r.pluginAddress).sort()).to.deep.equal([pluginA, pluginB].sort())
+      expect(rows.every(r => r.isAllowed)).to.be.true
+    })
+
+    it('clears the record of every DAO when a shared condition disallows the selector', async () => {
+      sandbox.stub(ContractInfo, 'parseSignature').resolves({ functionName: 'transfer', contractName: 'Token' })
+      sandbox.stub(logger, 'info')
+
+      await ExecuteHandler.selectorAllowed({ args: { selector: '0x12345678', where } } as any, mockInfo)
+      await ExecuteHandler.selectorDisallowed({ args: { selector: '0x12345678', where } } as any, {
+        ...mockInfo,
+        logIndex: 1,
+      })
+
+      const rows = await Models.SelectorPermission.find({ conditionAddress: condition }).lean()
+      expect(rows.map(row => [row.daoAddress, row.isAllowed, row.disallowed])).to.have.deep.members(
+        [daoA, daoB].map(daoAddress => [
+          daoAddress,
+          false,
+          {
+            status: true,
+            transactionHash: mockInfo.transactionHash,
+            blockNumber: mockInfo.blockNumber,
+            logIndex: 1,
+            blockTimestamp: null,
+          },
+        ]),
+      )
+    })
+
+    it('skips the decode when every DAO already has the record', async () => {
+      const parseSignature = sandbox
+        .stub(ContractInfo, 'parseSignature')
+        .resolves({ functionName: 'transfer', contractName: 'Token' })
+      sandbox.stub(logger, 'info')
+
+      const event = { args: { selector: '0x12345678', where } } as any
+
+      await ExecuteHandler.selectorAllowed(event, mockInfo)
+      expect(parseSignature.callCount).to.equal(1)
+
+      const second = await ExecuteHandler.selectorAllowed(event, mockInfo)
+      expect(second).to.deep.equal([])
+      expect(parseSignature.callCount).to.equal(1)
+    })
+
+    it('keeps a newer allow when another DAO replays an older disallow', async () => {
+      sandbox.stub(logger, 'warn')
+
+      const allowRow = async (blockNumber: number, txByte: string, isAllowed: boolean) =>
+        Models.SelectorPermission.create({
+          network: NetworksEnum.ethereumMainnet,
+          transactionHash: `0x${txByte.padStart(64, '0')}`,
+          transactionIndex: 0,
+          logIndex: 0,
+          blockNumber,
+          blockTimestamp: 1620000000,
+          conditionAddress: condition,
+          daoAddress: daoA,
+          pluginAddress: pluginA,
+          selector: '0x12345678',
+          target: where,
+          chainId: 1,
+          isAllowed,
+        })
+
+      // DAO A: allowed at block 10, disallowed, then allowed again at block 30.
+      await allowRow(10, 'aa', false)
+      await allowRow(30, 'bb', true)
+
+      // DAO B's crawl replays the disallow from an old block.
+      await ExecuteHandler.selectorDisallowed({ args: { selector: '0x12345678', where } } as any, {
+        ...mockInfo,
+        blockNumber: 20,
+      })
+
+      const newerAllow = await Models.SelectorPermission.findOne({
+        conditionAddress: condition,
+        daoAddress: daoA,
+        blockNumber: 30,
+      })
+      expect(newerAllow!.isAllowed).to.be.true
+      expect(await Models.SelectorPermission.countDocuments({ daoAddress: daoB })).to.equal(0)
+    })
+
+    const seedAllow = (row: { daoAddress: string; pluginAddress: string; blockNumber: number; chainId?: number }) =>
+      Models.SelectorPermission.create({
+        network: NetworksEnum.ethereumMainnet,
+        transactionHash: `0x${row.blockNumber.toString(16).padStart(64, '0')}`,
+        transactionIndex: 0,
+        logIndex: 0,
+        blockTimestamp: 1620000000,
+        conditionAddress: condition,
+        selector: '0x12345678',
+        target: where,
+        chainId: 1,
+        isAllowed: true,
+        ...row,
+      })
+
+    const disallowAt = (blockNumber: number) =>
+      ExecuteHandler.selectorDisallowed({ args: { selector: '0x12345678', where } } as any, {
+        ...mockInfo,
+        blockNumber,
+      })
+
+    it('does not clear an allow for another destination chain', async () => {
+      sandbox.stub(logger, 'warn')
+      sandbox.stub(logger, 'info')
+      await seedAllow({ daoAddress: daoA, pluginAddress: pluginA, blockNumber: 10 })
+      await seedAllow({ daoAddress: daoA, pluginAddress: pluginA, blockNumber: 11, chainId: 42161 })
+
+      // same-chain disallow: the event has no chainId arg
+      await disallowAt(20)
+
+      const rows = await Models.SelectorPermission.find({ daoAddress: daoA }).lean()
+      expect(rows.map(row => [row.chainId, row.isAllowed])).to.have.deep.members([
+        [1, false],
+        [42161, true],
+      ])
+    })
+
+    it('writes only the missing record when one DAO already has it', async () => {
+      const parseSignature = sandbox
+        .stub(ContractInfo, 'parseSignature')
+        .resolves({ functionName: 'transfer', contractName: 'Token' })
+      sandbox.stub(logger, 'info')
+      const event = { args: { selector: '0x12345678', where } } as any
+      await seedAllow({ daoAddress: daoA, pluginAddress: pluginA, ...mockInfo })
+
+      const written = await ExecuteHandler.selectorAllowed(event, mockInfo)
+
+      expect(written!.map(row => row.daoAddress)).to.deep.equal([daoB])
+      expect(await Models.SelectorPermission.countDocuments({ conditionAddress: condition })).to.equal(2)
+      expect(parseSignature.callCount).to.equal(1)
+    })
+
+    it('clears only the DAOs that have the allow and warns for the rest', async () => {
+      const warn = sandbox.stub(logger, 'warn')
+      sandbox.stub(logger, 'info')
+      await seedAllow({ daoAddress: daoA, pluginAddress: pluginA, blockNumber: 10 })
+
+      await disallowAt(20)
+
+      const rows = await Models.SelectorPermission.find({ conditionAddress: condition }).lean()
+      expect(rows.map(row => [row.daoAddress, row.isAllowed])).to.deep.equal([[daoA, false]])
+      expect(warn.calledWithMatch('Selector not found for disallowing' as any)).to.be.true
+    })
+
+    it('gives no record to an uninstalled process on the condition', async () => {
+      sandbox.stub(ContractInfo, 'parseSignature').resolves({ functionName: 'transfer', contractName: 'Token' })
+      sandbox.stub(logger, 'info')
+      await Models.Plugin.updateOne({ address: pluginB }, { status: IPluginStatus.uninstalled })
+
+      await ExecuteHandler.selectorAllowed({ args: { selector: '0x12345678', where } } as any, mockInfo)
+
+      const rows = await Models.SelectorPermission.find({ conditionAddress: condition }).lean()
+      expect(rows.map(row => row.daoAddress)).to.deep.equal([daoA])
+    })
+
+    it('clears only the DAO of the installed process when one Safe is a process in two DAOs', async () => {
+      sandbox.stub(logger, 'info')
+      // the same Safe is a process in DAO A and was a process in DAO B, whose copy is newer
+      await Models.Plugin.updateOne({ address: pluginB }, { address: pluginA, status: IPluginStatus.uninstalled })
+      await seedAllow({ daoAddress: daoA, pluginAddress: pluginA, blockNumber: 10 })
+      await seedAllow({ daoAddress: daoB, pluginAddress: pluginA, blockNumber: 15 })
+
+      await disallowAt(20)
+
+      const rows = await Models.SelectorPermission.find({ conditionAddress: condition }).lean()
+      expect(rows.map(row => [row.daoAddress, row.isAllowed])).to.have.deep.members([
+        [daoA, false],
+        [daoB, true],
+      ])
+    })
+
+    it('gives each DAO its own native transfer record and clears both', async () => {
+      sandbox
+        .stub(ContractInfo, 'parseSignature')
+        .resolves({ functionName: 'NativeTransfer', contractName: 'Contract' })
+      sandbox.stub(logger, 'info')
+
+      const written = await ExecuteHandler.nativeTransfersAllowed({ args: { where } } as any, mockInfo)
+      await ExecuteHandler.nativeTransfersDisallowed({ args: { where } } as any, { ...mockInfo, logIndex: 1 })
+
+      expect(written).to.have.lengthOf(2)
+      const rows = await Models.SelectorPermission.find({ conditionAddress: condition, selector: null }).lean()
+      expect(rows.map(row => [row.daoAddress, row.isAllowed])).to.have.deep.members([
+        [daoA, false],
+        [daoB, false],
+      ])
     })
   })
 
@@ -421,7 +656,7 @@ describe('ExecuteHandler', () => {
       sandbox.stub(ContractInfo, 'parseSignature').resolves(mockDecoded)
       const loggerInfoStub = sandbox.stub(logger, 'info')
 
-      const result = await ExecuteHandler.nativeTransfersAllowed(parsedEvent, mockInfo)
+      const result = (await ExecuteHandler.nativeTransfersAllowed(parsedEvent, mockInfo))![0]
 
       expect(result).to.exist
       expect(result.selector).to.be.null
@@ -432,7 +667,7 @@ describe('ExecuteHandler', () => {
       expect(result.isAllowed).to.be.true
 
       // Compare the decoded object as plain object
-      const decodedObj = result.decoded.toObject ? result.decoded.toObject() : result.decoded
+      const decodedObj = result.decoded
       expect(decodedObj.functionName).to.equal(mockDecoded.functionName)
       expect(decodedObj.contractName).to.equal(mockDecoded.contractName)
 
@@ -497,7 +732,7 @@ describe('ExecuteHandler', () => {
 
       const result = await ExecuteHandler.nativeTransfersAllowed(parsedEvent, mockInfo)
 
-      expect(result).to.be.undefined
+      expect(result).to.deep.equal([])
 
       // Verify only one permission exists
       const permissions = await Models.SelectorPermission.find({
@@ -658,7 +893,7 @@ describe('ExecuteHandler', () => {
         notice: 'Approves tokens',
       })
 
-      const allowResult = await ExecuteHandler.selectorAllowed(allowEvent, mockInfo)
+      const allowResult = (await ExecuteHandler.selectorAllowed(allowEvent, mockInfo))![0]
       expect(allowResult).to.exist
       expect(allowResult.isAllowed).to.be.true
 
@@ -667,7 +902,7 @@ describe('ExecuteHandler', () => {
         args: { selector, where: target },
       } as any
 
-      await ExecuteHandler.selectorDisallowed(disallowEvent, mockInfo)
+      await ExecuteHandler.selectorDisallowed(disallowEvent, { ...mockInfo, logIndex: mockInfo.logIndex + 1 })
 
       // Verify the permission was updated
       const updatedPermission = await Models.SelectorPermission.findOne({
@@ -694,7 +929,7 @@ describe('ExecuteHandler', () => {
         contractName: 'Contract',
       })
 
-      const allowResult = await ExecuteHandler.nativeTransfersAllowed(allowEvent, mockInfo)
+      const allowResult = (await ExecuteHandler.nativeTransfersAllowed(allowEvent, mockInfo))![0]
       expect(allowResult).to.exist
       expect(allowResult.isAllowed).to.be.true
       expect(allowResult.selector).to.be.null
@@ -704,7 +939,7 @@ describe('ExecuteHandler', () => {
         args: { where: target },
       } as any
 
-      await ExecuteHandler.nativeTransfersDisallowed(disallowEvent, mockInfo)
+      await ExecuteHandler.nativeTransfersDisallowed(disallowEvent, { ...mockInfo, logIndex: mockInfo.logIndex + 1 })
 
       // Verify the permission was updated
       const updatedPermission = await Models.SelectorPermission.findOne({
@@ -758,6 +993,8 @@ describe('ExecuteHandler', () => {
       transactionIndex: mockInfo.transactionIndex,
       logIndex: mockInfo.logIndex,
       conditionAddress: mockInfo.address,
+      daoAddress: mockPlugin.daoAddress,
+      pluginAddress: mockPlugin.address,
     })
 
     it('returns the row the other worker wrote when both handled the same log', async () => {
