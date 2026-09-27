@@ -76,8 +76,6 @@ describe('Module: SafeBodyMembers', () => {
     sandbox.stub(logger, 'warn')
     sandbox.stub(logger, 'verbose')
     sandbox.stub(RabbitMQHelper, 'sendMessage').resolves()
-    sandbox.stub(logger, 'warn')
-    sandbox.stub(logger, 'verbose')
     sandbox.stub(SafeChainReaderModule, 'readOwners').resolves([OWNER, SECOND_OWNER])
     sandbox.stub(BaseGovernance, 'ensureBaseMember').resolves(null)
 
