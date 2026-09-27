@@ -28,6 +28,8 @@ describe('Helpers:PluginSlug', () => {
     let plugin4: Plugin
 
     beforeEach(async () => {
+      sandbox.stub(logger, 'verbose')
+
       plugin = await Models.Plugin.create({
         id: 'test-plugin-1',
         address: '0x121',
@@ -78,6 +80,7 @@ describe('Helpers:PluginSlug', () => {
     })
 
     it('should return default processKey', async () => {
+      sandbox.stub(logger, 'warn')
       expect(await PluginSlug.generateSlug(plugin, undefined as any)).to.equal(IPluginSlug.tokenvoting)
       expect(await PluginSlug.generateSlug(plugin2, undefined as any)).to.equal(IPluginSlug.multisig)
       expect(await PluginSlug.generateSlug(plugin3, undefined as any)).to.equal(IPluginSlug.spp)
@@ -85,6 +88,7 @@ describe('Helpers:PluginSlug', () => {
     })
 
     it('should return default processKey on multiple plugins', async () => {
+      sandbox.stub(logger, 'warn')
       const newPlugin2 = await plugin2.update({ interfaceType: IPluginInterfaceType.tokenVoting })
       const newPlugin3 = await plugin3.update({ interfaceType: IPluginInterfaceType.tokenVoting })
 
@@ -94,6 +98,7 @@ describe('Helpers:PluginSlug', () => {
     })
 
     it('should return default processKey', async () => {
+      sandbox.stub(logger, 'warn')
       expect(await PluginSlug.generateSlug(plugin, 'test' as any)).to.equal('test')
       expect(await PluginSlug.generateSlug(plugin2, 'test' as any)).to.equal('test_1')
       expect(await PluginSlug.generateSlug(plugin3, 'test' as any)).to.equal('test_2')
@@ -111,10 +116,13 @@ describe('Helpers:PluginSlug', () => {
     })
 
     it('should not update not existing', async () => {
+      const errorStub = sandbox.stub(logger, 'error')
       expect(await PluginSlug.updateSlug(plugin, 'test' as any)).to.equal(null)
+      expect(errorStub.calledWith('Plugin slug not found' as any)).to.be.true
     })
 
     it('should not update non-alphanumeric characters', async () => {
+      sandbox.stub(logger, 'warn')
       expect(await PluginSlug.generateSlug(plugin, 'test' as any)).to.equal('test')
       expect(await PluginSlug.generateSlug(plugin2, 'test' as any)).to.equal('test_1')
       expect(await PluginSlug.updateSlug(plugin, 'test_1' as any)).to.equal('test1')
@@ -188,6 +196,8 @@ describe('Helpers:PluginSlug', () => {
     let plugin2: Plugin
 
     beforeEach(async () => {
+      sandbox.stub(logger, 'verbose')
+
       plugin = await Models.Plugin.create({
         id: 'test-plugin-1',
         address: '0x121',
@@ -246,6 +256,7 @@ describe('Helpers:PluginSlug', () => {
     })
 
     it('should generate unique slug if default slug already exists', async () => {
+      sandbox.stub(logger, 'warn')
       const baseKey = IPluginSlug.tokenvoting
 
       const slug0 = await PluginSlug.generateSlug(plugin, baseKey)
@@ -260,6 +271,7 @@ describe('Helpers:PluginSlug', () => {
     })
 
     it('should handle concurrent slug generation', async () => {
+      sandbox.stub(logger, 'warn')
       const baseKey = IPluginSlug.tokenvoting
 
       const results = (await Promise.all([
@@ -299,6 +311,7 @@ describe('Helpers:PluginSlug', () => {
     })
 
     it('should generate unique slug if default slug already exists', async () => {
+      sandbox.stub(logger, 'warn')
       const baseKey = IPluginSlug.tokenvoting
 
       await Models.PluginSlug.create({
@@ -317,6 +330,7 @@ describe('Helpers:PluginSlug', () => {
     })
 
     it('should generate unique slug when processKey is provided and already exists', async () => {
+      sandbox.stub(logger, 'warn')
       const processKey = 'customslug'
 
       await Models.PluginSlug.create({
@@ -359,9 +373,11 @@ describe('Helpers:PluginSlug', () => {
     })
 
     it('should return default processKey when process key is wrong', async () => {
+      const errorStub = sandbox.stub(logger, 'error')
       const processKey = { key: 'value' }
       const storedSlug = await PluginSlug.generateSlug(plugin, processKey as any)
       expect(storedSlug).to.equal(IPluginSlug.tokenvoting)
+      expect(errorStub.calledWith('Error parsing processKey' as any)).to.be.true
     })
 
     it('should return null when plugin has unsupported interface type', async () => {
@@ -408,6 +424,8 @@ describe('Helpers:PluginSlug', () => {
     let pluginToDelete: Plugin
 
     beforeEach(async () => {
+      sandbox.stub(logger, 'verbose')
+
       pluginToDelete = await Models.Plugin.create({
         id: 'test-plugin-delete',
         address: '0x125',
@@ -508,6 +526,7 @@ describe('Helpers:PluginSlug', () => {
     })
 
     it('should keep the slug when another installed row still uses the same address', async () => {
+      const warnStub = sandbox.stub(logger, 'warn')
       // what a plugin update leaves behind: a deprecated row and a live one on the same address
       const updatedRow = await Models.Plugin.create({
         id: 'test-plugin-delete-updated',
@@ -523,6 +542,7 @@ describe('Helpers:PluginSlug', () => {
 
       const wasDeleted = await PluginSlug.deleteSlug(pluginToDelete)
       expect(wasDeleted).to.be.false
+      expect(warnStub.calledWith('Keeping PluginSlug, another installed row still uses it' as any)).to.be.true
 
       const stillThere = await Models.PluginSlug.findPluginSlug(
         updatedRow.address,
@@ -547,6 +567,8 @@ describe('Helpers:PluginSlug', () => {
     let pluginToUpdate: Plugin
 
     beforeEach(async () => {
+      sandbox.stub(logger, 'verbose')
+
       pluginToUpdate = await Models.Plugin.create({
         id: 'test-plugin-update',
         address: '0x128',
@@ -584,6 +606,7 @@ describe('Helpers:PluginSlug', () => {
     })
 
     it('should handle updating to an existing slug by appending suffix', async () => {
+      const infoStub = sandbox.stub(logger, 'info')
       const conflictingSlug = 'conflictslug'
 
       const conflictingPlugin = await Models.Plugin.create({
@@ -601,6 +624,7 @@ describe('Helpers:PluginSlug', () => {
 
       const updateResult = await PluginSlug.updateSlug(pluginToUpdate, conflictingSlug)
       expect(updateResult).to.eq(`${conflictingSlug}_1`)
+      expect(infoStub.calledWith('Slug already exists during update, incrementing suffix' as any)).to.be.true
 
       const updatedSlug = await Models.PluginSlug.findExistingSlugInDao(
         pluginToUpdate.daoAddress,
@@ -620,6 +644,7 @@ describe('Helpers:PluginSlug', () => {
     })
 
     it('should return null if PluginSlug does not exist for update', async () => {
+      const errorStub = sandbox.stub(logger, 'error')
       const nonExistentPlugin = await Models.Plugin.create({
         id: 'test-plugin-nonexistent-update',
         address: '0x12A',
@@ -633,22 +658,27 @@ describe('Helpers:PluginSlug', () => {
 
       const updateResult = await PluginSlug.updateSlug(nonExistentPlugin, 'newslug')
       expect(updateResult).to.be.null
+      expect(errorStub.calledWith('Plugin slug not found' as any)).to.be.true
     })
 
     it('should return null if processKey is invalid', async () => {
+      const errorStub = sandbox.stub(logger, 'error')
       const processKey = { key: 'value' }
 
       const updateResult = await PluginSlug.updateSlug(pluginToUpdate, processKey as any)
       expect(updateResult).to.be.null
+      expect(errorStub.calledWith('Error parsing processKey' as any)).to.be.true
     })
 
     it('should handle errors gracefully and return null', async () => {
+      const errorStub = sandbox.stub(logger, 'error')
       const newProcessKey = 'updatedslug'
 
       const updateSlugStub = sandbox.stub(PluginSlug, '_updateSlugWithRetries').throws(new Error('Transaction error'))
 
       const updateResult = await PluginSlug.updateSlug(pluginToUpdate, newProcessKey)
       expect(updateResult).to.be.null
+      expect(errorStub.calledWith('Error update slug' as any)).to.be.true
 
       expect(updateSlugStub.calledOnce).to.be.true
       expect(updateSlugStub.args[0][0]).to.eq(newProcessKey)
@@ -660,6 +690,8 @@ describe('Helpers:PluginSlug', () => {
     let plugin: Plugin
 
     beforeEach(async () => {
+      sandbox.stub(logger, 'verbose')
+
       plugin = await Models.Plugin.create({
         id: 'test-plugin-retries',
         address: '0x140',
@@ -748,6 +780,7 @@ describe('Helpers:PluginSlug', () => {
     })
 
     it('should return null after maximum retries exceeded', async () => {
+      sandbox.stub(logger, 'warn')
       const baseSlug = 'max-retries-slug'
       const errorStub = sandbox.stub(logger, 'error')
 
@@ -770,6 +803,8 @@ describe('Helpers:PluginSlug', () => {
     let pluginSlug: any
 
     beforeEach(async () => {
+      sandbox.stub(logger, 'verbose')
+
       plugin = await Models.Plugin.create({
         id: 'test-plugin-update-retries',
         address: '0x150',
@@ -804,6 +839,7 @@ describe('Helpers:PluginSlug', () => {
     })
 
     it('should return null after maximum retries exceeded during update', async () => {
+      sandbox.stub(logger, 'info')
       const newSlug = 'update-max-retries-slug'
       const errorStub = sandbox.stub(logger, 'error')
 
