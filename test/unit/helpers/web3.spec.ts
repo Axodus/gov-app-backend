@@ -872,6 +872,7 @@ describe('Helpers:Web3', () => {
       const fakeAddress = '0x1234567890123456789012345678901234567890'
       const fakeNetwork = NetworksEnum.ethereumMainnet
 
+      sandbox.stub(logger, 'error')
       const balance = await MockedWeb3Helper.getERC20Balance(fakeTokenAddress, fakeAddress, fakeNetwork)
       expect(balance).to.equal(0n)
     })
@@ -882,11 +883,12 @@ describe('Helpers:Web3', () => {
     const fakeAddress = '0x1234567890123456789012345678901234567890'
     const fakeNetwork = NetworksEnum.ethereumMainnet
 
-    const mockWeb3HelperWithRevert = () => {
+    const mockWeb3HelperWithRevert = (
+      revertError: Error = Object.assign(new Error('missing revert data'), { code: 'CALL_EXCEPTION', data: '0x' }),
+    ) => {
       const stubConfigState = {
         getConfigItem: sandbox.stub().returns({}),
       }
-      const revertError = Object.assign(new Error('missing revert data'), { code: 'CALL_EXCEPTION', data: '0x' })
 
       const { default: MockedWeb3Helper } = proxyquire.noCallThru()('@helpers/web3', {
         ethers: {
@@ -902,6 +904,11 @@ describe('Helpers:Web3', () => {
       return MockedWeb3Helper
     }
 
+    beforeEach(() => {
+      sandbox.stub(logger, 'warn')
+      sandbox.stub(logger, 'error')
+    })
+
     it('should mark the balance unreadable when balanceOf reverts empty on a deployed contract', async () => {
       const MockedWeb3Helper = mockWeb3HelperWithRevert()
       sandbox.stub(ProviderModule, 'getAnyRpcProvider').returns({ getCode: sandbox.stub().resolves('0x6080') } as any)
@@ -911,28 +918,16 @@ describe('Helpers:Web3', () => {
       expect(result).to.deep.equal({ balance: null, unreadable: true })
     })
 
-    it('returns unreadable when balanceOf returns empty data on a deployed contract', async () => {
-      const stubConfigState = {
-        getConfigItem: sandbox.stub().returns({}),
-      }
+    it('should mark the balance unreadable when balanceOf returns empty data on a deployed contract', async () => {
       const badDataError = Object.assign(new Error('could not decode result data'), { code: 'BAD_DATA', value: '0x' })
-
-      const { default: MockedWeb3Helper } = proxyquire.noCallThru()('@helpers/web3', {
-        ethers: {
-          Contract: function () {
-            return { balanceOf: sandbox.stub().rejects(badDataError) }
-          },
-        },
-        '@state/configState': {
-          ConfigState: { getInstance: () => stubConfigState },
-        },
-      })
+      const MockedWeb3Helper = mockWeb3HelperWithRevert(badDataError)
 
       sandbox.stub(ProviderModule, 'getAnyRpcProvider').returns({ getCode: sandbox.stub().resolves('0x6080') } as any)
 
       const result = await MockedWeb3Helper.getERC20BalanceResult(fakeAddress, fakeTokenAddress, fakeNetwork)
 
       expect(result).to.deep.equal({ balance: null, unreadable: true })
+      expect((logger.warn as any).calledWith('Token does not implement balanceOf')).to.be.true
     })
 
     it('should not mark the balance unreadable when the address has no contract code', async () => {
@@ -1067,6 +1062,7 @@ describe('Helpers:Web3', () => {
         },
       })
       sandbox.stub(logger, 'error')
+      sandbox.stub(logger, 'warn')
       const multisigPlugin = '0xTokenAddress'
       const fakeAddress = '0x1234567890123456789012345678901234567890'
       const fakeNetwork = NetworksEnum.ethereumMainnet
