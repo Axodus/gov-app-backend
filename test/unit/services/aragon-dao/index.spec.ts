@@ -16,9 +16,11 @@ import { SinonSandbox } from 'sinon'
 
 describe('AragonDao: index', () => {
   let sandbox: SinonSandbox
+  let loggerInfoStub: sinon.SinonStub
 
   beforeEach(async () => {
     sandbox = sinon.createSandbox()
+    loggerInfoStub = sandbox.stub(logger, 'info')
   })
 
   afterEach(() => {
@@ -28,7 +30,6 @@ describe('AragonDao: index', () => {
   describe('start', () => {
     it('should initialize RabbitMQ processing for all queues', async () => {
       const processStub = sandbox.stub(RabbitMQHelper, 'process')
-      const loggerStub = sandbox.stub(logger, 'info')
 
       await AragonDaoService.start()
 
@@ -46,12 +47,11 @@ describe('AragonDao: index', () => {
       expect(processStub.calledWith(EnumQueueName.executionActions)).to.be.true
       expect(processStub.calledWith(EnumQueueName.eventReplay)).to.be.true
 
-      expect(loggerStub.calledWith('AragonDaoService service started' as any)).to.be.true
+      expect(loggerInfoStub.calledWith('AragonDaoService service started' as any)).to.be.true
     })
 
     it('should route executionActions jobs to the execution decode worker', async () => {
       const processStub = sandbox.stub(RabbitMQHelper, 'process')
-      sandbox.stub(logger, 'info')
       const decodeStub = sandbox.stub(DaoExecutionHandler, 'decodeExecutionTransaction').resolves()
 
       await AragonDaoService.start()
@@ -65,7 +65,6 @@ describe('AragonDao: index', () => {
 
     it('should route eventReplay jobs to the event replay helper', async () => {
       const processStub = sandbox.stub(RabbitMQHelper, 'process')
-      sandbox.stub(logger, 'info')
       const replayStub = sandbox.stub(EventReplayHelper, 'handleEventsFromTxHash').resolves({} as any)
 
       await AragonDaoService.start()
@@ -83,11 +82,9 @@ describe('AragonDao: index', () => {
 
   describe('stop', () => {
     it('should log that the service stopped', async () => {
-      const loggerStub = sandbox.stub(logger, 'info')
-
       await AragonDaoService.stop()
 
-      expect(loggerStub.calledOnceWith('AragonDaoService service stopped' as any)).to.be.true
+      expect(loggerInfoStub.calledOnceWith('AragonDaoService service stopped' as any)).to.be.true
     })
   })
 

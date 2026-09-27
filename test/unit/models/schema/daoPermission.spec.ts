@@ -1,6 +1,7 @@
 import PermissionController from '@api/controllers/permission'
 import { Models } from '@dbModels'
 import RabbitMQHelper from '@helpers/rabbitMQ'
+import logger from '@logger'
 import { FakeDaoPermissions } from '@test/mock/fakeDaoPermission'
 import {
   EnumQueueName,
@@ -640,6 +641,7 @@ describe('Dao Permission', () => {
 
     it('keeps the unknown fallback when the dao service never replies', async () => {
       sendMessageStub.resolves(null)
+      sandbox.stub(logger, 'warn')
 
       const result = await PermissionController.getPermissionsByDao(daoAddress, network, { pageSize: 10, page: 1 })
       const failedRow = result.data.find(row => row.permissionId === '0xSPP_RULE')
@@ -824,6 +826,7 @@ describe('Dao Permission', () => {
         })
       }
 
+      sandbox.stub(RabbitMQHelper, 'sendMessage').resolves({ rulesByCondition: {} } as any)
       const result = await PermissionController.getPermissionsByDao(daoAddress, network, { pageSize: 10, page: 1 })
       byPermission = Object.fromEntries(result.data.map(row => [row.permissionId, row]))
     })

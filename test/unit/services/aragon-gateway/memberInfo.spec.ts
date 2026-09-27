@@ -3,6 +3,7 @@ import GovernanceErc20Helper from '@helpers/governanceErc20'
 import LockToVoteHelper from '@helpers/lockToVoteHelper'
 import Web3Helper from '@helpers/web3'
 import Web3BatchHelper from '@helpers/web3BatchHelper'
+import logger from '@logger'
 import { ProxyToken } from '@modules/proxyToken'
 import { MemberInfo } from '@services/aragon-gateway/memberInfo'
 import { IPluginInterfaceType, NetworksEnum } from '@types'
@@ -76,6 +77,7 @@ describe('AragonDao: memberInfo', () => {
       sandbox.stub(Web3Helper, 'getERC20Balance').resolves(100n)
       sandbox.stub(GovernanceErc20Helper, 'getVotes').rejects(new Error('rpc error'))
       sandbox.stub(GovernanceErc20Helper, 'getDelegates').resolves('0xDelegateAddress')
+      sandbox.stub(logger, 'warn')
 
       const result = await MemberInfo.getByTokenAddress(
         '0xUserAddress',
@@ -96,6 +98,7 @@ describe('AragonDao: memberInfo', () => {
       const getERC20BalanceStub = sandbox.stub(Web3Helper, 'getERC20Balance').rejects(new Error('rpc error'))
       const getVotesStub = sandbox.stub(GovernanceErc20Helper, 'getVotes').rejects(new Error('rpc error'))
       const getDelegateStub = sandbox.stub(GovernanceErc20Helper, 'getDelegates').rejects(new Error('rpc error'))
+      sandbox.stub(logger, 'warn')
 
       const result = await MemberInfo.getByTokenAddress(
         '0xUserAddress',
@@ -814,6 +817,7 @@ describe('AragonDao: memberInfo', () => {
 
     it('should return false on error', async () => {
       const pluginStub = sandbox.stub(Models.Plugin, 'findByAddress').rejects(new Error('Test error'))
+      sandbox.stub(logger, 'warn')
 
       const result = await MemberInfo.canCreateProposal(
         '0xPluginAddress',

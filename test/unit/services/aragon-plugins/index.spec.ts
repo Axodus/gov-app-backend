@@ -156,6 +156,10 @@ describe('AragonPlugins: index', () => {
   })
 
   describe('logDao queue', () => {
+    beforeEach(() => {
+      sandbox.stub(logger, 'info')
+    })
+
     it('should process logDao queue and call LogDao.start', async () => {
       const processStub = sandbox.stub(RabbitMQHelper, 'process')
       const daoStub = sandbox.stub(Models.Dao, 'findByAddress').resolves({} as any)
@@ -294,6 +298,12 @@ describe('AragonPlugins: index', () => {
   })
 
   describe('plugins queue', () => {
+    let loggerInfoStub: sinon.SinonStub
+
+    beforeEach(() => {
+      loggerInfoStub = sandbox.stub(logger, 'info')
+    })
+
     it('should process plugins queue for admin interface type', async () => {
       const processStub = sandbox.stub(RabbitMQHelper, 'process')
       const pluginStub = sandbox.stub(Models.Plugin, 'findByAddress').resolves({
@@ -447,7 +457,6 @@ describe('AragonPlugins: index', () => {
       }
       const pluginStub = sandbox.stub(Models.Plugin, 'findByAddress').resolves(mockPlugin as any)
       const logCapitalDistributorStub = sandbox.stub(LogCapitalDistributor, 'start').resolves()
-      const loggerInfoStub = sandbox.stub(logger, 'info')
 
       await AragonPluginsService.start()
 
@@ -469,7 +478,6 @@ describe('AragonPlugins: index', () => {
         address: '0xPluginAddress',
       })
       const logCapitalDistributorStub = sandbox.stub(LogCapitalDistributor, 'start').resolves()
-      sandbox.stub(logger, 'info')
 
       await AragonPluginsService.start()
 
@@ -492,7 +500,6 @@ describe('AragonPlugins: index', () => {
       }
       const pluginStub = sandbox.stub(Models.Plugin, 'findByAddress').resolves(mockPlugin as any)
       const logPolicyStub = sandbox.stub(LogPolicy, 'start').resolves()
-      const loggerInfoStub = sandbox.stub(logger, 'info')
 
       await AragonPluginsService.start()
 
@@ -516,7 +523,6 @@ describe('AragonPlugins: index', () => {
       }
       const pluginStub = sandbox.stub(Models.Plugin, 'findByAddress').resolves(mockPlugin as any)
       const logPolicyStub = sandbox.stub(LogPolicy, 'start').resolves()
-      const loggerInfoStub = sandbox.stub(logger, 'info')
 
       await AragonPluginsService.start()
 
@@ -586,6 +592,12 @@ describe('AragonPlugins: index', () => {
   })
 
   describe('requeue queue', () => {
+    let loggerInfoStub: sinon.SinonStub
+
+    beforeEach(() => {
+      loggerInfoStub = sandbox.stub(logger, 'info')
+    })
+
     it('should process plugins queue for admin interface type', async () => {
       const processStub = sandbox.stub(RabbitMQHelper, 'process')
       const pluginStub = sandbox.stub(Models.Plugin, 'findByAddress').resolves({
@@ -695,6 +707,7 @@ describe('AragonPlugins: index', () => {
       const proxyTokenStub = sandbox.stub(Models.Token, 'findOne').resolves({
         type: 'NonGovernanceToken',
       } as any)
+      const loggerWarnStub = sandbox.stub(logger, 'warn')
 
       await AragonPluginsService.start()
 
@@ -708,6 +721,8 @@ describe('AragonPlugins: index', () => {
 
       expect(proxyTokenStub.args[0][0].address).to.be.eq('0xTokenAddress')
       expect(proxyTokenStub.args[0][0].network).to.be.eq(NetworksEnum.ethereumMainnet)
+
+      expect(loggerWarnStub.calledWith('Sync plugin token not supported' as any)).to.be.true
     })
 
     it('should process plugins queue for spp interface type', async () => {
@@ -764,7 +779,6 @@ describe('AragonPlugins: index', () => {
       }
       const pluginStub = sandbox.stub(Models.Plugin, 'findByAddress').resolves(mockPlugin as any)
       const logCapitalDistributorStub = sandbox.stub(LogCapitalDistributor, 'start').resolves()
-      const loggerInfoStub = sandbox.stub(logger, 'info')
 
       await AragonPluginsService.start()
 
@@ -786,7 +800,6 @@ describe('AragonPlugins: index', () => {
         address: '0xPluginAddress',
       })
       const logCapitalDistributorStub = sandbox.stub(LogCapitalDistributor, 'start').resolves()
-      sandbox.stub(logger, 'info')
 
       await AragonPluginsService.start()
 
@@ -862,7 +875,6 @@ describe('AragonPlugins: index', () => {
       } as any)
       const logDelegateChangedStub = sandbox.stub(LogDelegateChanged, 'start').resolves()
 
-      sandbox.stub(logger, 'info')
       await AragonPluginsService.start()
 
       const handler = processStub.getCall(4).args[1]
@@ -881,7 +893,6 @@ describe('AragonPlugins: index', () => {
       const logDelegateChangedStub = sandbox.stub(LogDelegateChanged, 'start').resolves()
       const loggerStub = sandbox.stub(logger, 'error')
 
-      sandbox.stub(logger, 'info')
       await AragonPluginsService.start()
 
       const handler = processStub.getCall(4).args[1]

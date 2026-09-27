@@ -512,6 +512,7 @@ describe('Controller: Member', () => {
 
   describe('getMemberByAddress', () => {
     it('should get member by address without tokenAddress', async () => {
+      sandbox.stub(RabbitMQHelper, 'sendMessage').resolves(null)
       const stubFindMemberByAddress = sandbox.stub(Models.Member, 'findMemberByAddress').resolves({
         address: rawMember.address,
         ens: rawMember.ens,

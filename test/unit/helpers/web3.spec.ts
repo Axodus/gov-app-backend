@@ -872,6 +872,7 @@ describe('Helpers:Web3', () => {
       const fakeAddress = '0x1234567890123456789012345678901234567890'
       const fakeNetwork = NetworksEnum.ethereumMainnet
 
+      sandbox.stub(logger, 'error')
       const balance = await MockedWeb3Helper.getERC20Balance(fakeTokenAddress, fakeAddress, fakeNetwork)
       expect(balance).to.equal(0n)
     })
@@ -904,6 +905,7 @@ describe('Helpers:Web3', () => {
 
     it('should mark the balance unreadable when balanceOf reverts empty on a deployed contract', async () => {
       const MockedWeb3Helper = mockWeb3HelperWithRevert()
+      sandbox.stub(logger, 'warn')
       sandbox.stub(ProviderModule, 'getAnyRpcProvider').returns({ getCode: sandbox.stub().resolves('0x6080') } as any)
 
       const result = await MockedWeb3Helper.getERC20BalanceResult(fakeAddress, fakeTokenAddress, fakeNetwork)
@@ -913,6 +915,7 @@ describe('Helpers:Web3', () => {
 
     it('should not mark the balance unreadable when the address has no contract code', async () => {
       const MockedWeb3Helper = mockWeb3HelperWithRevert()
+      sandbox.stub(logger, 'error')
       sandbox.stub(ProviderModule, 'getAnyRpcProvider').returns({ getCode: sandbox.stub().resolves('0x') } as any)
 
       const result = await MockedWeb3Helper.getERC20BalanceResult(fakeAddress, fakeTokenAddress, fakeNetwork)
@@ -922,6 +925,8 @@ describe('Helpers:Web3', () => {
 
     it('should not mark the balance unreadable when the contract code lookup fails', async () => {
       const MockedWeb3Helper = mockWeb3HelperWithRevert()
+      sandbox.stub(logger, 'warn')
+      sandbox.stub(logger, 'error')
       sandbox
         .stub(ProviderModule, 'getAnyRpcProvider')
         .returns({ getCode: sandbox.stub().rejects(new Error('fake-error')) } as any)
@@ -1031,6 +1036,7 @@ describe('Helpers:Web3', () => {
         },
       })
       sandbox.stub(logger, 'error')
+      sandbox.stub(logger, 'warn')
       const multisigPlugin = '0xTokenAddress'
       const fakeAddress = '0x1234567890123456789012345678901234567890'
       const fakeNetwork = NetworksEnum.ethereumMainnet

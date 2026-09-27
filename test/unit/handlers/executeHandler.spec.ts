@@ -525,6 +525,7 @@ describe('ExecuteHandler', () => {
     })
 
     it('should pass correct parameters to parseSignature', async () => {
+      sandbox.stub(logger, 'info')
       const parsedEvent = {
         args: {
           where: '0x3333333333333333333333333333333333333333',
@@ -635,6 +636,10 @@ describe('ExecuteHandler', () => {
   })
 
   describe('Integration scenarios', () => {
+    beforeEach(() => {
+      sandbox.stub(logger, 'info')
+    })
+
     it('should handle complete lifecycle: allow then disallow selector', async () => {
       const selector = '0xaabbccdd'
       const target = '0x5555555555555555555555555555555555555555'

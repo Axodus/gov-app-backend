@@ -288,6 +288,7 @@ describe('Controller: Simulation', () => {
       const simulateStub = sandbox.stub(TenderlyModule, 'simulate').resolves({
         status: ISimulationStatus.SUCCESS,
       })
+      sandbox.stub(DbOperations, 'updateDocument').resolves()
 
       await SimulationController.simulateProposal('proposal-123')
 
@@ -320,6 +321,7 @@ describe('Controller: Simulation', () => {
         runAt: Date.now(),
         status: ISimulationStatus.SUCCESS,
       })
+      sandbox.stub(DbOperations, 'updateDocument').resolves()
 
       const result = await SimulationController.simulateProposal('proposal-123')
 

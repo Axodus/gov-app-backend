@@ -203,6 +203,7 @@ describe('Module: safe/safeChainReader', () => {
 
   it('reports a deployed reverting custom contract as null', async () => {
     contract.getOwners.rejects(Object.assign(new Error('execution reverted'), { code: 'CALL_EXCEPTION' }))
+    sandbox.stub(logger, 'verbose')
 
     expect(await reader().readOwners(NETWORK, ADDRESS)).to.equal(null)
   })

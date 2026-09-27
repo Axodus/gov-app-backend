@@ -757,15 +757,26 @@ describe('Indexer:Plugin', () => {
         update: sandbox.stub().resolves({}),
       }
 
+      await Models.Plugin.create({
+        status: IPluginStatus.installed,
+        network: rawPlugin.network,
+        blockNumber: 1000,
+        transactionHash: 'oldTx',
+        address: rawPlugin.address,
+        daoAddress: rawPlugin.daoAddress,
+        pluginSetupRepoAddress: rawPlugin.pluginSetupRepoAddress,
+        interfaceType: IPluginInterfaceType.tokenVoting,
+        isSupported: true,
+      })
+
       sandbox.stub(PluginHandler, '_createPlugin').resolves(newPlugin as any)
       sandbox.stub(logger, 'verbose').resolves()
 
       await PluginHandler.updatePlugin(eventUpdateApplied as any)
 
-      // Assertions - this test expects no previous plugin to be found
       expect(getLatestMetadataStub.calledOnce).to.be.true
       expect(updatePluginMetadataStub.called).to.be.false
-      expect(handleVersionUpgradeStub.calledOnce).to.be.false // Should not be called when no previous plugin
+      expect(handleVersionUpgradeStub.calledOnce).to.be.true
     })
 
     it('should log warning if rawPlugin is not found', async () => {
@@ -808,6 +819,7 @@ describe('Indexer:Plugin', () => {
       // no previous installed row exists, so the handler bails before deprecating anything
       sandbox.stub(PluginHandler, '_createPlugin').resolves(newRow)
       sandbox.stub(logger, 'warn')
+      sandbox.stub(logger, 'verbose')
 
       await PluginHandler.updatePlugin({ network: NetworksEnum.ethereumMainnet } as any)
 
@@ -2319,6 +2331,7 @@ describe('Indexer:Plugin', () => {
       })
 
       sandbox.stub(RabbitMQHelper, 'sendMessage')
+      sandbox.stub(logger, 'verbose')
 
       await PluginHandler.updateConditionAddress(
         mockPlugin.address,
@@ -2395,6 +2408,7 @@ describe('Indexer:Plugin', () => {
   describe('recoverConditionAddress', () => {
     beforeEach(() => {
       sandbox.stub(ConditionDetector, 'detect').resolves(null)
+      sandbox.stub(logger, 'verbose')
     })
 
     const network = NetworksEnum.ethereumMainnet
@@ -2550,6 +2564,7 @@ describe('Indexer:Plugin', () => {
       })
 
       const spyFindProposalConditionAddress = sandbox.spy(PluginHandler, 'findProposalConditionAddress')
+      sandbox.stub(logger, 'verbose')
 
       await PluginHandler._createPlugin(mockPluginLog as any)
 
