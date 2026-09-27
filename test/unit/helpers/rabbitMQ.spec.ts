@@ -712,6 +712,29 @@ describe('Helpers:RabbitMQ', () => {
       expect(fakeChannelWrapper.removeSetup.calledOnceWith(fakeChannelWrapper.addSetup.firstCall.args[0])).to.be.true
     })
 
+    it('should swallow a rejection when the abandoned reply consumer setup cannot be removed', async () => {
+      sandbox.stub(config.RABBITMQ, 'TIMEOUT').value(10)
+      const fakeChannelWrapper = {
+        addSetup: sandbox.stub().returns(new Promise(() => undefined)),
+        removeSetup: sandbox.stub().rejects(new Error('remove-setup-failed')),
+        sendToQueue: sandbox.stub().resolves(true),
+      }
+      sandbox.stub(RabbitMQ, 'getChannel').returns(fakeChannelWrapper as any)
+
+      const result = await RabbitMQHelper.sendMessage(
+        EnumQueueName.contractInfo,
+        { id: 'stalled-setup' },
+        { waitResponse: true, timeout: 30 },
+      )
+      await utils.wait(20)
+
+      expect(result).to.be.null
+      expect(fakeChannelWrapper.sendToQueue.called).to.be.false
+      expect(loggerErrorStub.calledWithMatch('_sendMessageWithResponse error')).to.be.true
+      expect(RabbitMQHelper.replyConsumers.has(fakeChannelWrapper)).to.be.false
+      expect(fakeChannelWrapper.removeSetup.calledOnceWith(fakeChannelWrapper.addSetup.firstCall.args[0])).to.be.true
+    })
+
     it('should retry setup and cancel the abandoned consumer before attaching its replacement', async () => {
       const clock = sandbox.useFakeTimers()
       sandbox.stub(config.RABBITMQ, 'TIMEOUT').value(20)
