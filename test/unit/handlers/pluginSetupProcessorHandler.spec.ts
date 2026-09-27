@@ -444,6 +444,7 @@ describe('Indexer: PluginSetupProcessorHandler', () => {
       const getTransactionReceiptStub = sandbox.stub(Web3Helper, 'getTransactionReceipt').resolves(true as any)
       const findByAddressStub = sandbox.stub(Models.Plugin, 'findByAddress').resolves(false)
       const stubLogger = sandbox.stub(logger, 'error')
+      sandbox.stub(logger, 'verbose')
 
       await PluginSetupProcessorHandler.installationApplied(fakeEvent as any, logInfo, true)
 
@@ -741,6 +742,7 @@ describe('Indexer: PluginSetupProcessorHandler', () => {
       const stubFindDao = sandbox.stub(Models.Dao, 'findByAddress').resolves(true)
       const stubFindPlugin = sandbox.stub(Models.Plugin, 'findByAddress').resolves(false)
       const stubLogger = sandbox.stub(logger, 'error')
+      sandbox.stub(logger, 'verbose')
 
       await PluginSetupProcessorHandler.installationPrepared(fakeEvent as any, logInfo)
 
@@ -857,6 +859,10 @@ describe('Indexer: PluginSetupProcessorHandler', () => {
   })
 
   describe('findAndUpdateTokenAddress', () => {
+    beforeEach(() => {
+      sandbox.stub(logger, 'verbose')
+    })
+
     it('should return when plugin does not carry token info', async () => {
       const plugin = await Models.Plugin.create({
         ...PluginList[0],
@@ -1126,6 +1132,7 @@ describe('Indexer: PluginSetupProcessorHandler', () => {
       const loggerStub = sandbox.stub(logger, 'verbose')
       const findTxSpy = sandbox.spy(Models.LogPluginSetupProcessor, 'findExistingLog')
       const stubFindDao = sandbox.stub(Models.Dao, 'findByAddress').resolves(true)
+      sandbox.stub(RabbitMQHelper, 'sendMessage').resolves()
 
       const PluginSetupProcessorHandlerAggLogStub = sandbox.stub(PluginSetupProcessorHandler, 'pluginHandler')
 
@@ -1243,6 +1250,7 @@ describe('Indexer: PluginSetupProcessorHandler', () => {
 
       sandbox.stub(Models.Dao, 'findByAddress').resolves(true)
       sandbox.stub(Models.LogPluginSetupProcessor, 'findExistingLog').resolves(true)
+      sandbox.stub(logger, 'warn')
       sandbox.stub(RabbitMQHelper, 'sendMessage').rejects(new Error('queue down'))
 
       await expect(PluginSetupProcessorHandler.uninstallationApplied(fakeEvent, logInfo)).not.to.be.rejected
@@ -1311,6 +1319,7 @@ describe('Indexer: PluginSetupProcessorHandler', () => {
       const findTxSpy = sandbox.spy(Models.LogPluginSetupProcessor, 'findExistingLog')
       const stubFindDao = sandbox.stub(Models.Dao, 'findByAddress').resolves(true)
       const PluginSetupProcessorHandlerAggLogStub = sandbox.stub(PluginSetupProcessorHandler, 'pluginHandler')
+      sandbox.stub(RabbitMQHelper, 'sendMessage').resolves()
 
       await PluginSetupProcessorHandler.uninstallationApplied(fakeEvent as any, logInfo)
 
@@ -1386,6 +1395,7 @@ describe('Indexer: PluginSetupProcessorHandler', () => {
 
       sandbox.stub(Models.Dao, 'findByAddress').resolves(true)
       sandbox.stub(PluginSetupProcessorHandler, 'pluginHandler')
+      sandbox.stub(RabbitMQHelper, 'sendMessage').resolves()
 
       // Should not throw error, just skip the non-existent subplugin
       await PluginSetupProcessorHandler.uninstallationApplied(fakeEvent as any, logInfo)
@@ -1436,6 +1446,7 @@ describe('Indexer: PluginSetupProcessorHandler', () => {
 
       sandbox.stub(Models.Dao, 'findByAddress').resolves(true)
       sandbox.stub(PluginSetupProcessorHandler, 'pluginHandler')
+      sandbox.stub(RabbitMQHelper, 'sendMessage').resolves()
 
       // exists returns truthy but findOne returns null (race condition)
       sandbox.stub(Models.Plugin, 'exists').resolves({ _id: 'some-id' } as any)
@@ -1677,6 +1688,7 @@ describe('Indexer: PluginSetupProcessorHandler', () => {
       }
 
       sandbox.stub(Models.Dao, 'findByAddress').resolves(true)
+      sandbox.stub(logger, 'verbose')
 
       await PluginSetupProcessorHandler.uninstallationPrepared(fakeEvent as any, logInfo)
 
