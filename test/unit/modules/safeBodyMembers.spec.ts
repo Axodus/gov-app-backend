@@ -1,6 +1,7 @@
 import { Models } from '@dbModels'
 import { SafeOwnerHandler } from '@handlers/safeOwnerHandler'
 import RabbitMQHelper from '@helpers/rabbitMQ'
+import logger from '@logger'
 import SafeBodyMembersModule from '@modules/safe/safeBodyMembers'
 import SafeChainReaderModule from '@modules/safe/safeChainReader'
 import MemberController from '@services/aragon-api/controllers/member'
@@ -73,6 +74,8 @@ describe('Module: SafeBodyMembers', () => {
   beforeEach(async () => {
     sandbox = sinon.createSandbox()
     sandbox.stub(RabbitMQHelper, 'sendMessage').resolves()
+    sandbox.stub(logger, 'warn')
+    sandbox.stub(logger, 'verbose')
     sandbox.stub(SafeChainReaderModule, 'readOwners').resolves([OWNER, SECOND_OWNER])
     sandbox.stub(BaseGovernance, 'ensureBaseMember').resolves(null)
 
