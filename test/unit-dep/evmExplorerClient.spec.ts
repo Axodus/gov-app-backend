@@ -1,3 +1,4 @@
+import config from '@config'
 import { EvmExplorerEnum, evmExplorerClient } from '@helpers/evmExplorerClient'
 import Utils from '@helpers/utils'
 import { NetworksEnum } from '@types'
@@ -9,6 +10,7 @@ describe('Integ: EvmExplorerClient', () => {
 
   beforeEach(() => {
     sandbox = sinon.createSandbox()
+    sandbox.stub(config.RETRY_REQUEST, 'COUNT').value(5)
   })
 
   afterEach(() => {
