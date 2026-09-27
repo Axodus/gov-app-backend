@@ -31,6 +31,12 @@ describe('Controller: QueueAdmin', () => {
   })
 
   describe('queuePlugins', () => {
+    let loggerStub: sinon.SinonStub
+
+    beforeEach(() => {
+      loggerStub = sandbox.stub(logger, 'verbose')
+    })
+
     it('should queue plugins successfully', async () => {
       const params = { address: '0x123', network: 'mainnet' }
       sandbox.stub(Models.Dao, 'findByAddress').resolves({ address: '0x123', network: 'mainnet' })
@@ -63,7 +69,6 @@ describe('Controller: QueueAdmin', () => {
       ])
       sandbox.stub(Models.PluginSlug, 'findOne').resolves({ pluginAddress: '0x456', slug: 'existing-slug' })
       const stubSlug = sandbox.stub(PluginSlug, 'generateSlug').resolves()
-      const loggerStub = sandbox.stub(logger, 'verbose')
 
       const result = await QueueAdminController.queuePlugins(params)
 
@@ -329,6 +334,8 @@ describe('Controller: QueueAdmin', () => {
       .stub(Models.Proposal, 'findOne')
       .resolves({ proposalIndex: '1', pluginAddress: '0x456', network: 'mainnet' })
 
+    sandbox.stub(logger, 'verbose')
+
     const result = await QueueAdminController.queueProposalMetrics(params)
 
     expect(result).to.be.true
@@ -569,6 +576,7 @@ describe('Controller: QueueAdmin', () => {
 
     it('should send tokenInfo queue message with forceUpdate=true', async () => {
       sandbox.stub(Models.Token, 'findExistingLog').resolves({ address: tokenAddress, network } as any)
+      sandbox.stub(logger, 'verbose')
 
       const result = await QueueAdminController.refreshTokenPrice({ address: tokenAddress, network })
 
@@ -612,6 +620,7 @@ describe('Controller: QueueAdmin', () => {
         isSupported: true,
         status: IPluginStatus.installed,
       })
+      sandbox.stub(logger, 'verbose')
 
       const result = await QueueAdminController.queueDelegateChangedSync({ pluginAddress, network })
 
@@ -680,6 +689,10 @@ describe('Controller: QueueAdmin', () => {
   })
 
   describe('recalculateProposalActions', () => {
+    beforeEach(() => {
+      sandbox.stub(logger, 'info')
+    })
+
     it('should successfully recalculate proposal actions', async () => {
       const params = {
         incrementalId: 1,
