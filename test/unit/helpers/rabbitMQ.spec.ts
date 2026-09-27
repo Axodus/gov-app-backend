@@ -701,7 +701,7 @@ describe('Helpers:RabbitMQ', () => {
       const result = await RabbitMQHelper.sendMessage(
         EnumQueueName.contractInfo,
         { id: 'stalled-setup' },
-        { waitResponse: true, timeout: 10 },
+        { waitResponse: true, timeout: 30 },
       )
 
       expect(result).to.be.null
