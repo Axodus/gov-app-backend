@@ -45,6 +45,8 @@ export interface ISafeMeta {
   fetchedAt: string
   /** The fresh window lapsed and this came from the stale window. Render it, do not discard it. */
   stale: boolean
+  /** The stored list is missing rows the Safe holds; `stale` is also set. */
+  partial?: boolean
 }
 
 export interface ISafeInfo {

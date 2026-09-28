@@ -184,7 +184,8 @@ export interface IProcessOptions {
     maxAttempts: number
     baseDelayMs: number
     maxDelayMs: number
-    deadLetterQueue: EnumQueueName
+    /** After the final attempt the payload goes to the dead-letter queue when one is set, otherwise it is dropped with an error log. */
+    deadLetterQueue?: EnumQueueName
   }
 }
 

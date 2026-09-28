@@ -14,6 +14,7 @@ import RabbitMQHelper from '@helpers/rabbitMQ'
 import logger from '@logger'
 import SafeBodyMembersModule from '@modules/safe/safeBodyMembers'
 import { SafeReadError } from '@modules/safe/safeError'
+import { attachProposalReports } from '@modules/safe/safeProposalReports'
 import SafeTransactionsModule from '@modules/safe/safeTransactions'
 import {
   EnumQueueName,
@@ -125,10 +126,21 @@ const SafeController = {
       logger.warn('Unable to queue the Safe pull', llo({ network, address, error }))
     })
     const stored = await SafeTransactionsModule.list(network, address, filters)
+    const sync = await Models.SafeAccount.findOne({ id: Models.SafeAccount.buildId(network, address) })
+      .select('queueFetchedAt queueComplete')
+      .lean()
+    const queueFetchedAt = sync?.queueFetchedAt ?? null
+    // The last pull did not fit in one page, so rows past it are not stored yet.
+    const partial = sync?.queueComplete === false
     const stale =
-      stored.refreshedAt == null || Date.now() - Date.parse(stored.refreshedAt) > config.SAFE_API.QUEUE_STALE_WINDOW
+      !queueFetchedAt || Date.now() - queueFetchedAt.getTime() > config.SAFE_API.QUEUE_STALE_WINDOW || partial
+    const results = await attachProposalReports(network, address, stored.results)
 
-    return { ...stored, meta: { source: ISafeSource.store, stale } }
+    return {
+      ...stored,
+      results,
+      meta: { source: ISafeSource.store, stale, partial, fetchedAt: queueFetchedAt?.toISOString() ?? null },
+    }
   },
 
   /**
@@ -143,7 +155,7 @@ const SafeController = {
       { network, safeAddress: address, safeTxHash },
       { actions: 1, rawActions: 1, decoding: 1 },
     ).lean()
-    assertExposable(row, ErrorKeyEnum.notFound)
+    assertExposable(row, ErrorKeyEnum.notFound, 404)
 
     return { decoding: row.decoding ?? true, actions: row.actions ?? [], rawActions: row.rawActions ?? [] }
   },

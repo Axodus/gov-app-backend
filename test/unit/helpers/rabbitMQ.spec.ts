@@ -302,6 +302,40 @@ describe('Helpers:RabbitMQ', () => {
         .be.true
     })
 
+    it('should drop and ack the last attempt when no dead-letter queue is set', async () => {
+      const queueName = EnumQueueName.safeRefresh
+      const fakeMsg: any = {
+        content: Buffer.from(JSON.stringify({ id: 'no-dead-letter' })),
+        properties: { headers: { 'x-aragon-retry-attempt': 5 } },
+        fields: {} as any,
+      }
+      const fakeChannel: Partial<any> = {
+        consume: sandbox.stub().callsFake((_queue, onMessage) => setImmediate(() => onMessage(fakeMsg))),
+        ack: sandbox.stub(),
+        nack: sandbox.stub(),
+        prefetch: sandbox.stub().resolves(),
+        assertQueue: sandbox.stub().resolves(),
+      }
+      const fakeChannelWrapper = {
+        addSetup: sandbox.stub().callsFake(async setupFn => setupFn(fakeChannel as ConfirmChannel)),
+        sendToQueue: sandbox.stub().resolves(true),
+      }
+      sandbox.stub(RabbitMQ, 'getChannel').returns(fakeChannelWrapper as any)
+      const getDelayChannelStub = sandbox.stub(RabbitMQ, 'getDelayChannel')
+      const handler = sandbox.stub().rejects(new Error('still unavailable'))
+
+      await RabbitMQHelper.process(queueName, handler, {
+        retry: { maxAttempts: 6, baseDelayMs: 2000, maxDelayMs: 60000 },
+      })
+      await utils.wait(20)
+
+      expect(getDelayChannelStub.notCalled).to.be.true
+      expect(fakeChannelWrapper.sendToQueue.notCalled).to.be.true
+      expect(fakeChannel.ack.calledOnceWith(fakeMsg)).to.be.true
+      expect(fakeChannel.nack.notCalled).to.be.true
+      expect(loggerErrorStub.calledWith('Message dropped after the last attempt')).to.be.true
+    })
+
     it('should nack for redelivery when scheduling the retry itself fails', async () => {
       const queueName = EnumQueueName.telegramNotifications
       const fakeMsg: any = {
