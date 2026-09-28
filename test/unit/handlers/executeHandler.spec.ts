@@ -518,6 +518,43 @@ describe('ExecuteHandler', () => {
       expect(await Models.SelectorPermission.countDocuments({ conditionAddress: condition })).to.equal(2)
     })
 
+    const allowAt = (blockNumber: number) =>
+      ExecuteHandler.selectorAllowed({ args: { selector: '0x12345678', where } } as any, {
+        ...mockInfo,
+        blockNumber,
+        transactionHash: `0x${blockNumber.toString(16).padStart(64, '0')}`,
+      })
+
+    it('stores an old allow that arrives after its disallow as already disallowed', async () => {
+      sandbox.stub(ContractInfo, 'parseSignature').resolves({ functionName: 'transfer', contractName: 'Token' })
+      sandbox.stub(logger, 'warn')
+      sandbox.stub(logger, 'info')
+
+      await disallowAt(20)
+      await allowAt(10)
+
+      const allows = await Models.SelectorPermission.find({ conditionAddress: condition, blockNumber: 10 }).lean()
+      expect(allows.map(row => [row.daoAddress, row.isAllowed, row.disallowed?.blockNumber])).to.have.deep.members([
+        [daoA, false, 20],
+        [daoB, false, 20],
+      ])
+    })
+
+    it('keeps an allow that comes after the disallow', async () => {
+      sandbox.stub(ContractInfo, 'parseSignature').resolves({ functionName: 'transfer', contractName: 'Token' })
+      sandbox.stub(logger, 'warn')
+      sandbox.stub(logger, 'info')
+
+      await disallowAt(20)
+      await allowAt(30)
+
+      const allows = await Models.SelectorPermission.find({ conditionAddress: condition, blockNumber: 30 }).lean()
+      expect(allows.map(row => [row.daoAddress, row.isAllowed])).to.have.deep.members([
+        [daoA, true],
+        [daoB, true],
+      ])
+    })
+
     it('gives no record to an uninstalled process on the condition', async () => {
       sandbox.stub(ContractInfo, 'parseSignature').resolves({ functionName: 'transfer', contractName: 'Token' })
       sandbox.stub(logger, 'info')
@@ -861,6 +898,36 @@ describe('ExecuteHandler', () => {
 
       expect(warnStub.calledOnce).to.be.true
       expect(warnStub.args[0][0]).to.equal('Plugin not found for condition address')
+    })
+
+    it('clears both native transfer allows when it was allowed twice before the disallow', async () => {
+      const where = '0x3333333333333333333333333333333333333333'
+      for (const blockNumber of [12340, 12342]) {
+        await Models.SelectorPermission.create({
+          network: mockInfo.network,
+          transactionHash: `0x${blockNumber.toString(16).padStart(64, '0')}`,
+          transactionIndex: 0,
+          logIndex: 0,
+          blockNumber,
+          blockTimestamp: 1620000000,
+          conditionAddress: mockInfo.address,
+          pluginAddress: mockPlugin.address,
+          daoAddress: mockPlugin.daoAddress,
+          selector: null,
+          target: where,
+          chainId: 1,
+          isAllowed: true,
+        })
+      }
+      sandbox.stub(logger, 'info')
+
+      await ExecuteHandler.nativeTransfersDisallowed({ args: { where } } as any, mockInfo)
+
+      const rows = await Models.SelectorPermission.find({ target: where, selector: null }).lean()
+      expect(rows.map(row => [row.blockNumber, row.isAllowed, row.disallowed?.blockNumber])).to.have.deep.members([
+        [12340, false, mockInfo.blockNumber],
+        [12342, false, mockInfo.blockNumber],
+      ])
     })
 
     it('should warn and return if native transfer permission not found', async () => {
