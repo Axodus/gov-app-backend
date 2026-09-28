@@ -18,6 +18,7 @@ import {
   EnumQueueName,
   EnumServiceName,
   IPluginInterfaceType,
+  IPluginStatus,
   type IQueueDao,
   type IQueuePlugin,
   type IQueueSyncDelegateChanged,
@@ -52,6 +53,7 @@ const AragonPluginsService: IService & { pluginQueue: (params: IQueuePlugin) => 
         logger.error('PluginSyncService: plugin not found', llo({ address, network }))
         return
       }
+      if (plugin.status !== IPluginStatus.installed) return
       await LogSelectorPermission.start(plugin)
     })
 

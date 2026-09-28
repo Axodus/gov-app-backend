@@ -181,6 +181,29 @@ export const ExecuteHandler = {
 
       if (!existingSelector) {
         logger.warn(notFoundLog, llo({ selector, where, chainId, ...info }))
+        await ExecuteHandler._createSelectorPermission({
+          network: info.network,
+          transactionHash: info.transactionHash,
+          transactionIndex: info.transactionIndex,
+          logIndex: info.logIndex,
+          blockNumber: info.blockNumber,
+          blockTimestamp,
+          conditionAddress: info.address,
+          daoAddress: plugin.daoAddress,
+          pluginAddress: plugin.address,
+          selector,
+          target: where,
+          chainId,
+          isAllowed: false,
+          decoded: { ...EMPTY_DECODED },
+          disallowed: {
+            status: true,
+            transactionHash: info.transactionHash,
+            blockNumber: info.blockNumber,
+            logIndex: info.logIndex,
+            blockTimestamp,
+          },
+        })
         continue
       }
 

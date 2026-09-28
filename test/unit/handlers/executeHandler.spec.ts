@@ -435,7 +435,8 @@ describe('ExecuteHandler', () => {
         blockNumber: 30,
       })
       expect(newerAllow!.isAllowed).to.be.true
-      expect(await Models.SelectorPermission.countDocuments({ daoAddress: daoB })).to.equal(0)
+      const daoBRows = await Models.SelectorPermission.find({ daoAddress: daoB }).lean()
+      expect(daoBRows.map(row => [row.blockNumber, row.isAllowed])).to.deep.equal([[20, false]])
     })
 
     const seedAllow = (row: { daoAddress: string; pluginAddress: string; blockNumber: number; chainId?: number }) =>
@@ -490,7 +491,7 @@ describe('ExecuteHandler', () => {
       expect(parseSignature.callCount).to.equal(1)
     })
 
-    it('clears only the DAOs that have the allow and warns for the rest', async () => {
+    it('clears the DAO that has the allow and stores the disallow for the DAO that has none yet', async () => {
       const warn = sandbox.stub(logger, 'warn')
       sandbox.stub(logger, 'info')
       await seedAllow({ daoAddress: daoA, pluginAddress: pluginA, blockNumber: 10 })
@@ -498,8 +499,20 @@ describe('ExecuteHandler', () => {
       await disallowAt(20)
 
       const rows = await Models.SelectorPermission.find({ conditionAddress: condition }).lean()
-      expect(rows.map(row => [row.daoAddress, row.isAllowed])).to.deep.equal([[daoA, false]])
+      expect(rows.map(row => [row.daoAddress, row.blockNumber, row.isAllowed])).to.have.deep.members([
+        [daoA, 10, false],
+        [daoB, 20, false],
+      ])
       expect(warn.calledWithMatch('Selector not found for disallowing' as any)).to.be.true
+    })
+
+    it('stores a replayed disallow only once', async () => {
+      sandbox.stub(logger, 'warn')
+
+      await disallowAt(20)
+      await disallowAt(20)
+
+      expect(await Models.SelectorPermission.countDocuments({ conditionAddress: condition })).to.equal(2)
     })
 
     it('gives no record to an uninstalled process on the condition', async () => {
@@ -614,7 +627,7 @@ describe('ExecuteHandler', () => {
       expect(warnStub.args[0][0]).to.equal('Plugin not found for condition address')
     })
 
-    it('should warn and return if selector permission not found', async () => {
+    it('should warn and store the disallow if the selector permission is not found', async () => {
       const parsedEvent = {
         args: {
           selector: '0x87654321', // Different selector
@@ -628,6 +641,8 @@ describe('ExecuteHandler', () => {
 
       expect(warnStub.calledOnce).to.be.true
       expect(warnStub.args[0][0]).to.equal('Selector not found for disallowing')
+      const stored = await Models.SelectorPermission.findOne({ selector: '0x87654321' }).lean()
+      expect(stored).to.include({ isAllowed: false, blockNumber: mockInfo.blockNumber })
     })
 
     it('should handle errors gracefully', async () => {
