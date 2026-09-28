@@ -923,7 +923,7 @@ export const PluginHandler = {
     pluginAddress: HexAddress,
     daoAddress: HexAddress,
     network: NetworksEnum,
-    conditionAddress: HexAddress | null,
+    conditionAddress: HexAddress,
   ): Promise<void> => {
     const plugin = await Models.Plugin.findOne({
       address: pluginAddress,
@@ -940,7 +940,7 @@ export const PluginHandler = {
       return
     }
 
-    const conditionInterfaceType = conditionAddress ? await ConditionDetector.detect(conditionAddress, network) : null
+    const conditionInterfaceType = await ConditionDetector.detect(conditionAddress, network)
 
     await DbOperations.updateDocument(
       plugin,

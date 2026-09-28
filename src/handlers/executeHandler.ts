@@ -22,6 +22,7 @@ const EMPTY_DECODED: ActionDecoded = {
   implementationAddress: null,
   inputs: null,
   notice: null,
+  stateMutability: null,
 }
 
 export const ExecuteHandler = {
@@ -102,6 +103,16 @@ export const ExecuteHandler = {
     }
   },
 
+  /** Rows whose disallow sits after this log on chain. */
+  _disallowedAfter(info: ILogInfo) {
+    return {
+      $or: [
+        { 'disallowed.blockNumber': { $gt: info.blockNumber } },
+        { 'disallowed.blockNumber': info.blockNumber, 'disallowed.logIndex': { $gt: info.logIndex } },
+      ],
+    }
+  },
+
   /** Writes the allow for each plugin on the condition that has no record of this log yet. */
   async _allow(
     parsedEvent: LogDescription,
@@ -127,6 +138,17 @@ export const ExecuteHandler = {
 
     const selectorRecords: SelectorPermission[] = []
     for (const selectorParams of pending) {
+      const laterDisallow = await Models.SelectorPermission.findOne({
+        selector,
+        target: where,
+        $and: [ExecuteHandler._chainIdFilter(parsedEvent, chainId), ExecuteHandler._disallowedAfter(info)],
+        conditionAddress: info.address,
+        network: info.network,
+        daoAddress: selectorParams.daoAddress,
+        pluginAddress: selectorParams.pluginAddress,
+        isAllowed: false,
+      }).sort({ 'disallowed.blockNumber': 1, 'disallowed.logIndex': 1 })
+
       selectorRecords.push(
         await ExecuteHandler._createSelectorPermission({
           blockNumber: info.blockNumber,
@@ -134,7 +156,8 @@ export const ExecuteHandler = {
           selector,
           target: where,
           chainId,
-          isAllowed: true,
+          isAllowed: !laterDisallow,
+          ...(laterDisallow ? { disallowed: laterDisallow.disallowed } : {}),
           ...selectorParams,
           decoded,
         }),
@@ -163,23 +186,30 @@ export const ExecuteHandler = {
     }
 
     const blockTimestamp = await Web3Helper.getBlockTimestamp(info.blockNumber, info.network)
+    const disallowed = {
+      status: true,
+      transactionHash: info.transactionHash,
+      blockNumber: info.blockNumber,
+      logIndex: info.logIndex,
+      blockTimestamp,
+    }
 
     for (const plugin of plugins) {
-      // Scoped by chainId: the same selector/target pair can be allowed on several
-      // destination chains, and disallowing one must not clear the others.
-      const existingSelector = await Models.SelectorPermission.findOne({
-        selector,
-        target: where,
-        // both filters are an $or, so they go under one $and or the second replaces the first
-        $and: [ExecuteHandler._chainIdFilter(parsedEvent, chainId), ExecuteHandler._before(info)],
-        conditionAddress: info.address,
-        network: info.network,
-        daoAddress: plugin.daoAddress,
-        pluginAddress: plugin.address,
-        isAllowed: true,
-      }).sort({ blockNumber: -1, transactionIndex: -1, logIndex: -1 })
+      const { modifiedCount } = await Models.SelectorPermission.updateMany(
+        {
+          selector,
+          target: where,
+          $and: [ExecuteHandler._chainIdFilter(parsedEvent, chainId), ExecuteHandler._before(info)],
+          conditionAddress: info.address,
+          network: info.network,
+          daoAddress: plugin.daoAddress,
+          pluginAddress: plugin.address,
+          isAllowed: true,
+        },
+        { $set: { isAllowed: false, disallowed } },
+      )
 
-      if (!existingSelector) {
+      if (!modifiedCount) {
         logger.warn(notFoundLog, llo({ selector, where, chainId, ...info }))
         await ExecuteHandler._createSelectorPermission({
           network: info.network,
@@ -196,29 +226,12 @@ export const ExecuteHandler = {
           chainId,
           isAllowed: false,
           decoded: { ...EMPTY_DECODED },
-          disallowed: {
-            status: true,
-            transactionHash: info.transactionHash,
-            blockNumber: info.blockNumber,
-            logIndex: info.logIndex,
-            blockTimestamp,
-          },
+          disallowed,
         })
         continue
       }
 
-      await existingSelector.update({
-        isAllowed: false,
-        disallowed: {
-          status: true,
-          transactionHash: info.transactionHash,
-          blockNumber: info.blockNumber,
-          logIndex: info.logIndex,
-          blockTimestamp,
-        },
-      })
-
-      logger.info(disallowedLog, llo({ selector, where, chainId, ...info, disallowed: existingSelector.disallowed }))
+      logger.info(disallowedLog, llo({ selector, where, chainId, ...info, disallowed }))
     }
   },
 
@@ -247,6 +260,7 @@ export const ExecuteHandler = {
               implementationAddress: selectorInfo.implementationAddress ?? null,
               inputs: selectorInfo.inputs,
               notice: selectorInfo.notice ?? null,
+              stateMutability: selectorInfo.stateMutability ?? null,
             }
           : { ...EMPTY_DECODED }
       })

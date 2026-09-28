@@ -109,7 +109,9 @@ export const RegisterSafeProcesses: IService = {
         }
 
         // the crawl only sets the condition on a fresh Granted, so a replayed grant needs it here
-        await PluginHandler.updateConditionAddress(whoAddress, whereAddress, network, conditionAddress)
+        if (conditionAddress) {
+          await PluginHandler.updateConditionAddress(whoAddress, whereAddress, network, conditionAddress)
+        }
         registered += 1
       } catch (error) {
         failed += 1
