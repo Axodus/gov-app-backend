@@ -20,12 +20,12 @@
 import config from '@config'
 import { Models } from '@dbModels'
 import logger from '@logger'
+import SafeBodyMembersModule from '@modules/safe/safeBodyMembers'
 import SafeCacheModule from '@modules/safe/safeCache'
 import SafeChainReaderModule from '@modules/safe/safeChainReader'
 import { SafeReadError } from '@modules/safe/safeError'
 import { attachProposalReports } from '@modules/safe/safeProposalReports'
 import { lowestFreeNonce, parseQueuePage } from '@modules/safe/safeQueueParser'
-import SafeBodyMembersModule from '@modules/safe/safeBodyMembers'
 import SafeTransactionsModule from '@modules/safe/safeTransactions'
 import SafeTxServiceModule from '@modules/safeTxService'
 import {

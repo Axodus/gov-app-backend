@@ -12,8 +12,8 @@ import { Models } from '@dbModels'
 import { assertExposable } from '@errors'
 import RabbitMQHelper from '@helpers/rabbitMQ'
 import logger from '@logger'
-import { SafeReadError } from '@modules/safe/safeError'
 import SafeBodyMembersModule from '@modules/safe/safeBodyMembers'
+import { SafeReadError } from '@modules/safe/safeError'
 import SafeTransactionsModule from '@modules/safe/safeTransactions'
 import {
   EnumQueueName,
