@@ -210,6 +210,20 @@ export const ExecuteHandler = {
       )
 
       if (!modifiedCount) {
+        // A replayed disallow finds the allows it already cleared, so nothing matches the update.
+        const replayed = await Models.SelectorPermission.findOne({
+          selector,
+          target: where,
+          ...ExecuteHandler._chainIdFilter(parsedEvent, chainId),
+          conditionAddress: info.address,
+          network: info.network,
+          daoAddress: plugin.daoAddress,
+          pluginAddress: plugin.address,
+          'disallowed.transactionHash': info.transactionHash,
+          'disallowed.logIndex': info.logIndex,
+        })
+        if (replayed) continue
+
         logger.warn(notFoundLog, llo({ selector, where, chainId, ...info }))
         await ExecuteHandler._createSelectorPermission({
           network: info.network,

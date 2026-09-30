@@ -518,6 +518,22 @@ describe('ExecuteHandler', () => {
       expect(await Models.SelectorPermission.countDocuments({ conditionAddress: condition })).to.equal(2)
     })
 
+    it('writes no extra record when the replayed disallow already cleared the allow', async () => {
+      sandbox.stub(logger, 'warn')
+      sandbox.stub(logger, 'info')
+      await seedAllow({ daoAddress: daoA, pluginAddress: pluginA, blockNumber: 10 })
+      await seedAllow({ daoAddress: daoB, pluginAddress: pluginB, blockNumber: 10 })
+
+      await disallowAt(20)
+      await disallowAt(20)
+
+      const rows = await Models.SelectorPermission.find({ conditionAddress: condition }).lean()
+      expect(rows.map(row => [row.daoAddress, row.isAllowed, row.disallowed?.blockNumber])).to.have.deep.members([
+        [daoA, false, 20],
+        [daoB, false, 20],
+      ])
+    })
+
     const allowAt = (blockNumber: number) =>
       ExecuteHandler.selectorAllowed({ args: { selector: '0x12345678', where } } as any, {
         ...mockInfo,
