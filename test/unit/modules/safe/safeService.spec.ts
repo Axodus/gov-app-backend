@@ -224,25 +224,24 @@ describe('Module: safe/safeService', () => {
     expect(transactions.record.getCalls().map(call => (call.args[2] as any[])[0].nonce)).to.deep.equal(['6'])
   })
 
-  it('stores a fresh cached history page on a full-depth sync without fetching it', async () => {
-    const { service, cache, txService, transactions } = loadService()
+  it('reads the history from upstream on a full-depth sync when the cached page is fresh', async () => {
+    const { service, cache, txService, transactions, account } = loadService()
     const history = {
       ...queuePage([executedTransaction('5')]),
-      meta: { source: 'safe-api', fetchedAt: '2026-08-26T12:00:00.000Z', stale: false },
+      meta: { source: 'safe-api', fetchedAt: new Date(0).toISOString(), stale: false },
     }
+    // The stamp already covers the cached page, so only a newer read brings in what executed since.
+    account.findOneAndUpdate.returns({ lean: sandbox.stub().resolves({ historyFetchedAt: new Date(0) }) })
     cache.read.callsFake(async (key: string) => (key.includes('|history|') ? { result: history, fresh: true } : null))
-    txService.get.resolves(queuePage([]))
+    txService.get.onFirstCall().resolves(queuePage([]))
+    txService.get.onSecondCall().resolves(queuePage([executedTransaction('6')]))
 
     await service.syncStore(NETWORK, ADDRESS, 2)
 
     const historyFetches = txService.get.getCalls().filter(call => (call.args[2] as any).executed === true)
-    const historyRecord = transactions.record
-      .getCalls()
-      .find(call => (call.args[2] as any[]).some(row => row.isExecuted))
-    expect(historyFetches).to.have.length(0)
-    expect(historyRecord, 'the cached history page was not stored').to.exist
-    // The stored page keeps the cached read's time, not now, so staleness is judged on the real read.
-    expect(historyRecord?.args[3]).to.equal(Date.parse('2026-08-26T12:00:00.000Z'))
+    const stored = transactions.record.getCalls().find(call => (call.args[2] as any[]).some(row => row.isExecuted))
+    expect(historyFetches).to.have.length(1)
+    expect((stored?.args[2] as any[])[0].nonce).to.equal('6')
   })
 
   it('does not re-store a fresh cached history page on a one-page poll', async () => {

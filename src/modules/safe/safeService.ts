@@ -479,7 +479,7 @@ const SafeServiceModule = {
       try {
         history = await readCachedPage({
           ...historyRequest(network, address, { limit, offset: page * limit }),
-          bypassCache: page === 0 && removed > 0,
+          bypassCache: page === 0 && (removed > 0 || fullDepth),
         })
       } catch (error) {
         if (fullDepth) throw error
