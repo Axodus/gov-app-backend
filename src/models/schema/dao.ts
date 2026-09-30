@@ -882,20 +882,22 @@ export default class Dao extends Model {
         if (plugin.interfaceType === IPluginInterfaceType.tokenVoting && plugin.tokenAddress) {
           // Query TokenMember collection - with votingPower filter (consistent with rest of codebase)
           memberQueries.push(
-            Models.TokenMember.distinct('memberAddress', {
-              tokenAddress: plugin.tokenAddress,
-              network,
-              votingPower: { $ne: '0' },
-            }).catch(error => {
-              logger.error('Error counting TokenMember for plugin - requires investigation', {
-                plugin: plugin.address,
-                interfaceType: plugin.interfaceType,
-                daoAddress: address,
-                network,
-                error,
-              })
-              return []
-            }),
+            Models.TokenMember.find(
+              { tokenAddress: plugin.tokenAddress, network, votingPower: { $ne: '0' } },
+              { memberAddress: 1, _id: 0 },
+            )
+              .lean()
+              .then(rows => rows.map(row => row.memberAddress))
+              .catch(error => {
+                logger.error('Error counting TokenMember for plugin - requires investigation', {
+                  plugin: plugin.address,
+                  interfaceType: plugin.interfaceType,
+                  daoAddress: address,
+                  network,
+                  error,
+                })
+                return []
+              }),
           )
 
           // Query Lock collection for veGovernance - no votingPower filter needed
