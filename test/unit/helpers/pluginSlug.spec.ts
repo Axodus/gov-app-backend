@@ -87,6 +87,12 @@ describe('Helpers:PluginSlug', () => {
       expect(await PluginSlug.generateSlug(plugin4, undefined as any)).to.equal(IPluginSlug.admin)
     })
 
+    it('should give a Safe process the safe slug', async () => {
+      const safe = await plugin.update({ interfaceType: IPluginInterfaceType.safe })
+
+      expect(await PluginSlug.generateSlug(safe, undefined as any)).to.equal(IPluginSlug.safe)
+    })
+
     it('should return default processKey on multiple plugins', async () => {
       sandbox.stub(logger, 'warn')
       const newPlugin2 = await plugin2.update({ interfaceType: IPluginInterfaceType.tokenVoting })

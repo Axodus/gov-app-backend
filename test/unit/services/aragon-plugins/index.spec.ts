@@ -12,7 +12,7 @@ import { LogSpp } from '@plugins/logSPP'
 import { LogTokenVoting } from '@plugins/logTokenVoting'
 import AragonPluginsService from '@services/aragon-plugins/index'
 import { LogDelegateChanged } from '@services/aragon-plugins/logDelegateChanged'
-import { EnumQueueName, IPluginInterfaceType, ITokenType, NetworksEnum } from '@types'
+import { EnumQueueName, IPluginInterfaceType, IPluginStatus, ITokenType, NetworksEnum } from '@types'
 import { expect } from 'chai'
 import * as sinon from 'sinon'
 import { SinonSandbox } from 'sinon'
@@ -196,6 +196,7 @@ describe('AragonPlugins: index', () => {
         address: '0xPluginAddress',
         network: NetworksEnum.ethereumMainnet,
         conditionAddress: '0xConditionAddress',
+        status: IPluginStatus.installed,
       } as any)
       const logSelectorPermissionStub = sandbox.stub(LogSelectorPermission, 'start').resolves()
 
@@ -230,6 +231,30 @@ describe('AragonPlugins: index', () => {
         }),
       ).to.be.true
       expect(logSelectorPermissionStub.calledOnce).to.be.true
+    })
+
+    it('does not crawl the condition of an uninstalled process', async () => {
+      const processStub = sandbox.stub(RabbitMQHelper, 'process')
+      sandbox.stub(Models.Plugin, 'findOne').resolves({
+        address: '0xPluginAddress',
+        network: NetworksEnum.ethereumMainnet,
+        conditionAddress: '0xConditionAddress',
+        status: IPluginStatus.uninstalled,
+      } as any)
+      const logSelectorPermissionStub = sandbox.stub(LogSelectorPermission, 'start').resolves()
+      sandbox.stub(logger, 'info')
+      await AragonPluginsService.start()
+
+      await processStub.getCall(1).args[1]({
+        id: 'some-id',
+        params: {
+          address: '0xPluginAddress',
+          network: NetworksEnum.ethereumMainnet,
+          conditionAddress: '0xConditionAddress',
+        },
+      })
+
+      expect(logSelectorPermissionStub.notCalled).to.be.true
     })
 
     it('should log an error if plugin is not found for logSelectorPermission queue', async () => {
@@ -269,6 +294,7 @@ describe('AragonPlugins: index', () => {
         network: NetworksEnum.ethereumSepolia,
         conditionAddress: '0x2222222222222222222222222222222222222222',
         interfaceType: 'admin',
+        status: IPluginStatus.installed,
       }
       const pluginStub = sandbox.stub(Models.Plugin, 'findOne').resolves(mockPlugin as any)
       const logSelectorPermissionStub = sandbox.stub(LogSelectorPermission, 'start').resolves()

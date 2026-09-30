@@ -274,6 +274,32 @@ describe('Controller: QueueAdmin', () => {
       await expect(QueueAdminController.queuePlugins(params)).to.be.rejectedWith(Error, ErrorKeyEnum.notFound)
     })
 
+    it('should leave a Safe process out of the plugin requeue', async () => {
+      const network = NetworksEnum.ethereumMainnet
+      const daoAddress = '0x000000000000000000000000000000000000000A'
+      const row = (address: string, interfaceType: IPluginInterfaceType) =>
+        Models.Plugin.create({
+          id: `row-${address}`,
+          address,
+          daoAddress,
+          network,
+          interfaceType,
+          status: IPluginStatus.installed,
+          isSupported: true,
+          transactionHash: '0xtx',
+          blockNumber: 10,
+        })
+      await row('0x5AFE000000000000000000000000000000005AFE', IPluginInterfaceType.safe)
+      await row('0x3333333333333333333333333333333333333333', IPluginInterfaceType.multisig)
+      sandbox.stub(Models.Dao, 'findByAddress').resolves({ address: daoAddress, network })
+      sandbox.stub(PluginSlug, 'generateSlug').resolves()
+
+      await QueueAdminController.queuePlugins({ address: daoAddress, network })
+
+      expect(rabbitMQ.calledOnce).to.be.true
+      expect(rabbitMQ.firstCall.args[1].params.address).to.equal('0x3333333333333333333333333333333333333333')
+    })
+
     it('should handle empty plugins array', async () => {
       const params = { address: '0x123', network: 'mainnet' }
       sandbox.stub(Models.Dao, 'findByAddress').resolves({ address: '0x123', network: 'mainnet' })

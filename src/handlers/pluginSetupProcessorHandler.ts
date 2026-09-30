@@ -429,6 +429,7 @@ export const PluginSetupProcessorHandler = {
             network: info.network,
             address: pluginAddress,
             status: IPluginStatus.installed,
+            interfaceType: { $ne: IPluginInterfaceType.safe },
           })
           if (!pluginToUpdate) return
 
