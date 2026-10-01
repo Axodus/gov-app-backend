@@ -45,8 +45,13 @@ export interface ISafeMeta {
   fetchedAt: string
   /** The fresh window lapsed and this came from the stale window. Render it, do not discard it. */
   stale: boolean
+}
+
+export interface ISafeStoreMeta extends Omit<ISafeMeta, 'fetchedAt'> {
+  /** The last queue pull, null before the first one. */
+  fetchedAt: string | null
   /** The stored list is missing rows the Safe holds; `stale` is also set. */
-  partial?: boolean
+  partial: boolean
 }
 
 export interface ISafeInfo {

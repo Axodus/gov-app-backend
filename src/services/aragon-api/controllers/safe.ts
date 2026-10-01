@@ -28,6 +28,7 @@ import {
   type ISafeQueueResponse,
   ISafeReadKind,
   ISafeSource,
+  type ISafeStoreMeta,
   ISafeTransactionState,
 } from '@types'
 
@@ -135,12 +136,14 @@ const SafeController = {
     const stale =
       !queueFetchedAt || Date.now() - queueFetchedAt.getTime() > config.SAFE_API.QUEUE_STALE_WINDOW || partial
     const results = await attachProposalReports(network, address, stored.results)
-
-    return {
-      ...stored,
-      results,
-      meta: { source: ISafeSource.store, stale, partial, fetchedAt: queueFetchedAt?.toISOString() ?? null },
+    const meta: ISafeStoreMeta = {
+      source: ISafeSource.store,
+      stale,
+      partial,
+      fetchedAt: queueFetchedAt?.toISOString() ?? null,
     }
+
+    return { ...stored, results, meta }
   },
 
   /**

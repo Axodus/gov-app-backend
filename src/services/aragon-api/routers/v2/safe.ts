@@ -237,7 +237,7 @@ const SafeRouter = {
      * `/queue` and `/history`.
      *
      * `meta.partial` is true when the Safe holds more pending transactions than one pull returns;
-     * `meta.stale` is set too.
+     * `meta.stale` is set too. `meta.fetchedAt` is null until the first pull.
      *
      * @apiSampleRequest /safe/:network/:address/transactions
      */

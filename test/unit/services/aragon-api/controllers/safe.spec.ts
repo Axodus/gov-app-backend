@@ -232,7 +232,9 @@ describe('Controller: safe', () => {
     const old = await SafeController.getTransactions(NETWORK, ADDRESS, { limit: 10, offset: 0 })
 
     expect(never.meta.stale).to.equal(true)
+    expect(never.meta.fetchedAt).to.equal(null)
     expect(old.meta.stale).to.equal(true)
+    expect(old.meta.fetchedAt).to.be.a('string')
   })
 
   it('marks the store partial and stale when the last pull did not fit one page', async () => {
